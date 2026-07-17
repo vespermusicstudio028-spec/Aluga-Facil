@@ -1,0 +1,96 @@
+{
+  "collections": {
+    "users": {
+      "fields": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "plan": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null",
+        "write": "request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')"
+      }
+    },
+    "properties": {
+      "fields": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "type": { "type": "string" },
+        "rentValue": { "type": "number" },
+        "status": { "type": "string" },
+        "photos": { "type": "array" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null && (resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')",
+        "write": "request.auth != null && (request.resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')"
+      }
+    },
+    "tenants": {
+      "fields": {
+        "ownerId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "residents": { "type": "array" },
+        "isTitular": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null && (resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')",
+        "write": "request.auth != null && (request.resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')"
+      }
+    },
+    "contracts": {
+      "fields": {
+        "ownerId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "startDate": { "type": "timestamp" },
+        "endDate": { "type": "timestamp" },
+        "monthlyValue": { "type": "number" },
+        "dueDay": { "type": "number" },
+        "status": { "type": "string" },
+        "contractUrl": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null && (resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')",
+        "write": "request.auth != null && (request.resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')"
+      }
+    },
+    "payments": {
+      "fields": {
+        "ownerId": { "type": "string" },
+        "contractId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "timestamp" },
+        "paidAt": { "type": "timestamp" },
+        "status": { "type": "string" },
+        "receiptUrl": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null && (resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')",
+        "write": "request.auth != null && (request.resource.data.ownerId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')"
+      }
+    },
+    "notifications": {
+      "fields": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "allow": {
+        "read": "request.auth != null && resource.data.userId == request.auth.uid",
+        "write": "request.auth != null"
+      }
+    }
+  }
+}

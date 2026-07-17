@@ -1,0 +1,32 @@
+  const getWhatsAppReminderLink = (payment: Payment, tenant: Tenant, property: Property) => {
+    if (!tenant?.residents || tenant.residents.length === 0) return '#';
+    const titular = tenant.residents.find(r => r.isTitular) || tenant.residents[0];
+    if (!titular?.phone) return '#';
+    let phone = titular.phone.replace(/\D/g, '');
+    if (!phone.startsWith('55')) phone = '55' + phone;
+
+    let dueDate = '';
+    if (payment.dueDate) {
+      if (payment.dueDate.toDate) {
+         dueDate = format(payment.dueDate.toDate(), 'dd/MM/yyyy');
+      } else if (payment.dueDate.seconds) {
+         dueDate = format(new Date(payment.dueDate.seconds * 1000), 'dd/MM/yyyy');
+      } else {
+         dueDate = format(new Date(payment.dueDate), 'dd/MM/yyyy');
+      }
+    }
+    const amount = Number(payment.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    
+    let text = `Olá ${titular.name},\n\nEste é um lembrete automático sobre o pagamento do imóvel *${property?.name || ''}*.\n\n`;
+    text += `*Valor:* R$ ${amount}\n`;
+    text += `*Vencimento:* ${dueDate}\n\n`;
+    
+    if (tenant.paymentMethod === 'pix' && tenant.pixKey) {
+        text += `Você pode realizar o pagamento via PIX utilizando a chave:\n*${tenant.pixKey}*\n\n`;
+    }
+    
+    text += `Por favor, desconsidere esta mensagem caso o pagamento já tenha sido realizado.\nObrigado!`;
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  };
+

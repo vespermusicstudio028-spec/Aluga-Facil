@@ -1,0 +1,16 @@
+{
+  "name": "AlugaFácil",
+  "short_name": "AlugaFácil",
+  "description": "Gestão Inteligente de Aluguéis",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/src/assets/images/alugafacil_logo_pwa_1783740353964.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

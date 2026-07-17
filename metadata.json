@@ -1,0 +1,6 @@
+{
+  "name": "AlugaFácil",
+  "description": "Gestão Inteligente de Aluguéis - SaaS completo para proprietários de imóveis gerenciarem inquilinos, contratos e pagamentos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

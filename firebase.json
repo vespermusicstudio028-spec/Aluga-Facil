@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-alugafcil-b1d9fc6a-16a8-4c5f-80e5-6ca53e5e9d4d",
+      "rules": "firestore.rules"
+    }
+  ]
+}
