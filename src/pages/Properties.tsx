@@ -883,7 +883,7 @@ export default function Properties() {
 
       <Link
         to="/tenants"
-        className="fixed bottom-8 right-8 z-40 bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-opacity-90 hover:scale-105 transition-all flex items-center justify-center"
+        className="fixed bottom-24 right-6 z-40 bg-secondary text-white w-14 h-14 rounded-full shadow-2xl hover:bg-opacity-90 hover:scale-110 transition-all flex items-center justify-center"
         title="Ir para Inquilinos"
       >
         <Users size={24} />
