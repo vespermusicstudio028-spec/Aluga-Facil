@@ -216,7 +216,10 @@ export default function Chat() {
   const sendMessage = async (type: ChatMessage['message_type'], content?: string, mediaUrl?: string) => {
     if (!user || !selectedTenant) return;
     setSending(true);
-    await supabase.from('chat_messages').insert({
+
+    // Optimistic update: mostra a mensagem na tela imediatamente
+    const tempMsg: ChatMessage = {
+      id: `temp_${Date.now()}`,
       owner_id: user.uid,
       tenant_id: selectedTenant.id,
       sender_role: 'owner',
@@ -225,7 +228,31 @@ export default function Chat() {
       media_url: mediaUrl || null,
       read_by_owner: true,
       read_by_tenant: false,
-    });
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
+    const { data, error } = await supabase.from('chat_messages').insert({
+      owner_id: user.uid,
+      tenant_id: selectedTenant.id,
+      sender_role: 'owner',
+      message_type: type,
+      content: content || null,
+      media_url: mediaUrl || null,
+      read_by_owner: true,
+      read_by_tenant: false,
+    }).select().single();
+
+    if (error) {
+      console.error('ERRO AO ENVIAR MENSAGEM:', error);
+      // Reverte o optimistic update em caso de erro
+      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
+      alert('Falha ao enviar mensagem: ' + error.message);
+    } else if (data) {
+      // Substitui a mensagem temporária pela real (com ID real do banco)
+      setMessages(prev => prev.map(m => m.id === tempMsg.id ? data as ChatMessage : m));
+    }
+
     setSending(false);
   };
 

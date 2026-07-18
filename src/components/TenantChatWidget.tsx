@@ -166,7 +166,10 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
 
   const sendMessage = async (type: ChatMessage['message_type'], content?: string, mediaUrl?: string) => {
     if (!tenant?.id) return;
-    await supabase.from('chat_messages').insert({
+
+    // Optimistic update: mostra imediatamente
+    const tempMsg: ChatMessage = {
+      id: `temp_${Date.now()}`,
       owner_id: tenant.ownerId,
       tenant_id: tenant.id,
       sender_role: 'tenant',
@@ -174,8 +177,29 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       content: content || null,
       media_url: mediaUrl || null,
       read_by_owner: false,
-      read_by_tenant: true, // Já lida por quem envia
-    });
+      read_by_tenant: true,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
+    const { data, error } = await supabase.from('chat_messages').insert({
+      owner_id: tenant.ownerId,
+      tenant_id: tenant.id,
+      sender_role: 'tenant',
+      message_type: type,
+      content: content || null,
+      media_url: mediaUrl || null,
+      read_by_owner: false,
+      read_by_tenant: true,
+    }).select().single();
+
+    if (error) {
+      console.error('ERRO AO ENVIAR MENSAGEM:', error);
+      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
+      alert('Falha ao enviar mensagem: ' + error.message);
+    } else if (data) {
+      setMessages(prev => prev.map(m => m.id === tempMsg.id ? data as ChatMessage : m));
+    }
   };
 
   const handleSendText = async () => {
