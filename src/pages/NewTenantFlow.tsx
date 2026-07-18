@@ -33,8 +33,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import pixIcon from '../assets/images/pix_teal_logo_v2_1783872046658.jpg';
-import creditIcon from '../assets/images/credit_cards_fan_icon_1783872034304.jpg';
-import debitIcon from '../assets/images/debit_cards_icon_1783870308035.jpg';
+import boletoIcon from '../assets/images/boleto_icon.png';
 import cashIcon from '../assets/images/real_cash_fan_icon_1783872566134.jpg';
 
 export default function NewTenantFlow() {
@@ -1000,11 +999,10 @@ const handleSubmit = async () => {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Forma de Pagamento</h2>
               <p className="text-slate-500 mb-8 font-medium">Selecione o método de pagamento preferencial do inquilino.</p>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
                   { id: 'pix', label: 'PIX', icon: pixIcon },
-                  { id: 'credit', label: 'Cartão de Crédito', icon: creditIcon },
-                  { id: 'debit', label: 'Cartão de Débito', icon: debitIcon },
+                  { id: 'boleto', label: 'Boleto', icon: boletoIcon },
                   { id: 'cash', label: 'Dinheiro', icon: cashIcon }
                 ].map((method) => (
                   <button
@@ -1212,7 +1210,7 @@ const handleSubmit = async () => {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white text-lg">
-                         {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Cartão de Crédito' : paymentMethod === 'debit' ? 'Cartão de Débito' : 'Dinheiro'}
+                         {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'boleto' ? 'Boleto' : 'Dinheiro'}
                        </p>
                        {paymentMethod === 'pix' && pixKey && <p className="text-slate-500 text-sm">Chave: {pixKey}</p>}
                        <p className="text-slate-500 text-sm font-bold mt-1">Vencimento: Todo dia {dueDay} de cada mês.</p>
