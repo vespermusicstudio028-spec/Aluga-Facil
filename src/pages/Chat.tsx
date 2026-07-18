@@ -173,14 +173,24 @@ export default function Chat() {
     fetchUnread();
   }, [user, tenants]);
 
-  // Load messages for selected tenant
   const loadMessages = useCallback(async (tenantId: string) => {
     if (!user) return;
-    const { data } = await supabase.rpc('get_chat_messages', {
+    const { data, error } = await supabase.rpc('get_chat_messages', {
       p_owner_id: user.uid,
       p_tenant_id: tenantId
     });
-    setMessages(data || []);
+    if (error) console.error('get_chat_messages error:', error);
+    
+    const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
+    
+    setMessages(prev => {
+      // Preserva mensagens temporárias que ainda estão sendo enviadas
+      const tempMsgs = prev.filter(m => m.id.startsWith('temp_'));
+      // Apenas atualiza se houver diferença real para evitar re-renders desnecessários
+      if (prev.length === msgs.length + tempMsgs.length) return prev;
+      return [...msgs, ...tempMsgs];
+    });
+
     // Mark as read
     await supabase.rpc('mark_chat_read', {
       p_owner_id: user.uid,
@@ -194,18 +204,36 @@ export default function Chat() {
     if (!selectedTenant || !user) return;
     loadMessages(selectedTenant.id);
 
+    // Sincronização Ativa (Polling) à prova de falhas (a cada 3s)
+    const syncInterval = setInterval(() => {
+      loadMessages(selectedTenant.id);
+    }, 3000);
+
     // Realtime subscription
     if (channelRef.current) supabase.removeChannel(channelRef.current);
     channelRef.current = supabase.channel(`chat_${user.uid}_${selectedTenant.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages',
         filter: `tenant_id=eq.${selectedTenant.id}` },
         (payload) => {
-          setMessages(prev => [...prev, payload.new as ChatMessage]);
-          supabase.from('chat_messages').update({ read_by_owner: true }).eq('id', payload.new.id);
+          const msg = payload.new as ChatMessage;
+          // Ignora as próprias mensagens no Realtime (o sendMessage já adiciona elas com o ID correto e não dá conflito)
+          if (msg.sender_role === 'owner') return;
+          
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          
+          if (msg.sender_role === 'tenant') {
+            supabase.rpc('mark_chat_read', { p_owner_id: user.uid, p_tenant_id: selectedTenant.id, p_reader: 'owner' });
+          }
         })
       .subscribe();
 
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+    return () => { 
+      clearInterval(syncInterval);
+      if (channelRef.current) supabase.removeChannel(channelRef.current); 
+    };
   }, [selectedTenant, user, loadMessages]);
 
   useEffect(() => {
@@ -255,8 +283,14 @@ export default function Chat() {
       console.error('ERRO AO ENVIAR MENSAGEM:', error);
       setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('Falha ao enviar mensagem: ' + error.message);
-    } else if (data && data[0]) {
-      setMessages(prev => prev.map(m => m.id === tempId ? data[0] as ChatMessage : m));
+    } else if (data) {
+      const saved = (typeof data === 'object' && !Array.isArray(data)) ? data : (data[0] ?? data);
+      setMessages(prev => {
+        const withoutTemp = prev.filter(m => m.id !== tempId);
+        // Evita duplicar se o Realtime ou Polling já trouxe a mensagem
+        if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
+        return [...withoutTemp, saved as ChatMessage];
+      });
     }
 
     setSending(false);

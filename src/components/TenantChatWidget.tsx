@@ -104,21 +104,34 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     if (!tenant?.id || !tenant?.ownerId) return;
 
     const loadMessages = async () => {
-      const { data } = await supabase.rpc('get_chat_messages', {
+      if (!tenant?.id || !tenant?.ownerId) return;
+      const { data, error } = await supabase.rpc('get_chat_messages', {
         p_owner_id: tenant.ownerId,
         p_tenant_id: tenant.id
       });
+      if (error) console.error('get_chat_messages error:', error);
       
-      setMessages(data || []);
+      const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
       
-      // Calculate unread
-      const unread = (data || []).filter((m: any) => m.sender_role === 'owner' && !m.read_by_tenant).length;
+      setMessages(prev => {
+        const tempMsgs = prev.filter(m => m.id.startsWith('temp_'));
+        if (prev.length === msgs.length + tempMsgs.length) return prev;
+        return [...msgs, ...tempMsgs];
+      });
+
+      const unread = msgs.filter((m: any) => m.sender_role === 'owner' && !m.read_by_tenant).length;
       setUnreadCount(unread);
     };
 
     loadMessages();
 
+    // Sincronização Ativa (Polling)
+    const syncInterval = setInterval(() => {
+      loadMessages();
+    }, 3000);
+
     // Subscribe to new messages
+    if (channelRef.current) supabase.removeChannel(channelRef.current);
     channelRef.current = supabase.channel(`tenant_chat_${tenant.id}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
@@ -127,8 +140,10 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
         filter: `tenant_id=eq.${tenant.id}` 
       }, (payload) => {
         const msg = payload.new as ChatMessage;
+        // Inquilino ignora suas próprias mensagens via Realtime
+        if (msg.sender_role === 'tenant') return;
+        
         setMessages(prev => {
-          // Evita duplicatas com optimistic update
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
@@ -138,8 +153,9 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       })
       .subscribe();
 
-    return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
+    return () => { 
+      clearInterval(syncInterval);
+      if (channelRef.current) supabase.removeChannel(channelRef.current); 
     };
   }, [tenant]);
 
@@ -200,8 +216,13 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       console.error('ERRO AO ENVIAR:', error);
       setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('Falha ao enviar: ' + error.message);
-    } else if (data && data[0]) {
-      setMessages(prev => prev.map(m => m.id === tempId ? data[0] as ChatMessage : m));
+    } else if (data) {
+      const saved = (typeof data === 'object' && !Array.isArray(data)) ? data : (data[0] ?? data);
+      setMessages(prev => {
+        const withoutTemp = prev.filter(m => m.id !== tempId);
+        if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
+        return [...withoutTemp, saved as ChatMessage];
+      });
     }
   };
 
