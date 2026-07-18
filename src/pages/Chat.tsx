@@ -312,8 +312,11 @@ export default function Chat() {
       mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        if (!recordingRef.current) return; // cancelado
+        // 'cancelado' é lido antes de qualquer limpeza de estado
+        const wasRecording = recordingRef.current;
+        if (!wasRecording) return;
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (blob.size < 1000) return; // ignora gravações muito curtas
         const url = await uploadMedia(blob, 'webm');
         if (url) await sendMessage('audio', undefined, url);
       };
@@ -325,11 +328,16 @@ export default function Chat() {
   };
 
   const handleMicPointerUp = () => {
+    // Para a gravação ANTES de limpar o recordingRef,
+    // para que o onstop ainda veja recordingRef = true e processe o áudio
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
-    setRecording(false);
-    recordingRef.current = false;
+    // Limpa o estado de gravação APÓS o stop()
+    setTimeout(() => {
+      setRecording(false);
+      recordingRef.current = false;
+    }, 100);
   };
 
   const filteredTenants = tenants.filter(t => {

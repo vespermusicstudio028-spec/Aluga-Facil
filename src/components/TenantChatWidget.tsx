@@ -237,8 +237,11 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        if (!recordingRef.current) return;
+        // Captura o valor ANTES de qualquer limpeza de estado
+        const wasRecording = recordingRef.current;
+        if (!wasRecording) return;
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (blob.size < 1000) return; // ignora gravações muito curtas
         const url = await uploadMedia(blob, 'webm');
         if (url) await sendMessage('audio', undefined, url);
       };
@@ -250,11 +253,15 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   };
 
   const handleMicPointerUp = () => {
+    // Para ANTES de limpar o ref para que o onstop ainda veja wasRecording = true
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
-    setRecording(false);
-    recordingRef.current = false;
+    // Limpa o estado APÓS o stop() disparar o onstop
+    setTimeout(() => {
+      setRecording(false);
+      recordingRef.current = false;
+    }, 100);
   };
 
   return (
