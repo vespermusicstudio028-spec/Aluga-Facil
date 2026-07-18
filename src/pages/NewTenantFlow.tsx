@@ -243,11 +243,11 @@ export default function NewTenantFlow() {
             if (tenantData.signature) {
               setSignatureImage(tenantData.signature);
             }
-            if (tenantData.ownerSignature) {
-              setOwnerSignatureImage(tenantData.ownerSignature);
+            if (tenantData.owner_signature) {
+              setOwnerSignatureImage(tenantData.owner_signature);
             }
-            if (tenantData.contractAccepted) {
-              setContractAccepted(tenantData.contractAccepted);
+            if (tenantData.contract_accepted) {
+              setContractAccepted(tenantData.contract_accepted);
             }
             if (tenantData.lease_term) {
               if (['12', '24', '30'].includes(tenantData.lease_term)) {
