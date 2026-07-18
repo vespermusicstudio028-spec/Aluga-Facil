@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,32 @@ export default function Login() {
   const [loginMode, setLoginMode] = useState<'owner' | 'tenant'>('owner');
   const [tenantCpf, setTenantCpf] = useState('');
   const [tenantPassword, setTenantPassword] = useState('');
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showIosHint, setShowIosHint] = useState(false);
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  // Captura o evento de instalação do PWA
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') setInstallPrompt(null);
+    } else if (isIos) {
+      setShowIosHint(true);
+    } else {
+      // Fallback: tenta abrir o site em modo standalone ou mostra instrução
+      setShowIosHint(true);
+    }
+  };
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -303,12 +329,39 @@ export default function Login() {
                     </button>
 
                     <a
+                      onClick={handleInstallApp}
                       href="#"
                       className="w-full py-4 bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-3 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all duration-200 shadow-sm border-2 border-slate-700/50"
                     >
                       <Smartphone size={22} className="text-emerald-400" />
                       Baixar nosso Aplicativo
                     </a>
+
+                    {/* Modal de instrução para iOS */}
+                    {showIosHint && (
+                      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4" onClick={() => setShowIosHint(false)}>
+                        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-sm mb-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <Smartphone size={24} className="text-primary" />
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center mb-2">Instalar AlugaFácil</h3>
+                          <p className="text-sm text-slate-500 text-center mb-4">
+                            Para instalar o app no seu aparelho:
+                          </p>
+                          <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-3 mb-6">
+                            <li className="flex items-start gap-2"><span className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span> Toque no ícone de <strong>compartilhar</strong> (⬆️) no menu do seu navegador</li>
+                            <li className="flex items-start gap-2"><span className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span> Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
+                            <li className="flex items-start gap-2"><span className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span> Toque em <strong>"Adicionar"</strong> e pronto! 🎉</li>
+                          </ol>
+                          <button
+                            onClick={() => setShowIosHint(false)}
+                            className="w-full py-3 bg-primary text-white rounded-2xl font-bold text-sm"
+                          >
+                            Entendido!
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
