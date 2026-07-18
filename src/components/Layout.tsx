@@ -18,7 +18,8 @@ import {
   Sun, 
   Moon,
   Bell,
-  Check
+  Check,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -107,6 +108,7 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Building2 size={20} />, label: 'Imóveis', path: '/properties' },
     { icon: <Users size={20} />, label: 'Inquilinos', path: '/tenants' },
+    { icon: <MessageSquare size={20} />, label: 'Chat', path: '/chat' },
     { icon: <FileText size={20} />, label: 'Contratos', path: '/contracts' },
     { icon: <CreditCard size={20} />, label: 'Pagamentos', path: '/payments' },
     { icon: <Receipt size={20} />, label: 'Comprovantes', path: '/receipts' },
@@ -238,7 +240,7 @@ export default function Layout({ children }: LayoutProps) {
               <Menu size={24} />
             </button>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white hidden sm:block">
-              {menuItems.find(item => item.path === location.pathname)?.label || secondaryItems.find(item => item.path === location.pathname)?.label || 'Bem-vindo'}
+              {menuItems.find(item => item.path === location.pathname)?.label || secondaryItems.find(item => item.path === location.pathname)?.label || (location.pathname === '/chat' ? 'Chat' : 'Bem-vindo')}
             </h2>
           </div>
 

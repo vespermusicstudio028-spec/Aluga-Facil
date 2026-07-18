@@ -47,6 +47,7 @@ import TenantDashboard from './pages/TenantDashboard';
 import Admin from './pages/Admin';
 import PublicPropertyFlow from './pages/PublicPropertyFlow';
 import AuthCallback from './pages/AuthCallback';
+import Chat from './pages/Chat';
 
 const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
@@ -91,6 +92,7 @@ function AppRoutes() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       
+      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
     </Routes>
   );
