@@ -519,103 +519,96 @@ export default function Properties() {
           ))}
         </div>
       ) : filteredProperties.length > 0 ? (
-        <div className="space-y-12">
-          {sortedGroups.map((group) => (
-            <div key={group}>
-              {group !== 'Imóveis Individuais' && (
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
-                  <span className="flex items-center gap-2"><MapPin size={20} className="text-primary"/> {group}</span>
-                </h2>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {groupedProperties[group].map((p) => (
-                  <motion.div 
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={p.id} 
-                    className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-xl transition-all group"
-                  >
-                    <div className="h-48 bg-slate-200 dark:bg-slate-800 relative overflow-hidden">
-                      <PropertyPhotoCarousel photos={p.photos || []} altText={p.name} />
-                      <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-full text-xs font-bold shadow-sm">
-                        <span className={
-                          p.status === 'available' ? 'text-secondary' : 
-                          p.status === 'rented' ? 'text-primary' : 'text-orange-500'
-                        }>
-                          {p.status === 'available' ? 'Disponível' : 
-                           p.status === 'rented' ? 'Alugado' : 'Manutenção'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate pr-2">{p.name}</h3>
-                        <div className="relative flex items-center">
-                          {p.status === 'available' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleShare(p.id); }}
-                              className="p-2 text-primary hover:text-primary/80 rounded-lg hover:bg-primary/10 transition-all mr-1"
-                              title="Compartilhar Link Público"
-                            >
-                              <Share2
-  
-  size={20} />
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => setActiveMenu(activeMenu === p.id ? null : p.id)}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                          >
-                            <MoreVertical size={20} />
-                          </button>
-                          
-                          <AnimatePresence>
-                            {activeMenu === p.id && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                                <motion.div 
-                                  initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                  className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
-                                >
-                                  <button 
-                                    onClick={() => { handleOpenModal(p); setActiveMenu(null); }}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                  >
-                                    <Edit2 size={16} className="text-primary" /> Editar
-                                  </button>
-                                  <button 
-                                    onClick={() => { handleDelete(p.id); setActiveMenu(null); }}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-                                  >
-                                    <Trash2 size={16} /> Excluir
-                                  </button>
-                                </motion.div>
-                              </>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-4">
-                        <MapPin size={16} />
-                        <span className="truncate">{p.address}</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <div>
-                          <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Aluguel</p>
-                          <p className="text-lg font-bold text-primary dark:text-white">R$ {p.rentValue.toLocaleString()}</p>
-                        </div>
-                        <button className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                          Detalhes
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredProperties.map((p) => (
+            <motion.div 
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              key={p.id} 
+              className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col"
+            >
+              <div className="h-48 bg-slate-200 dark:bg-slate-800 relative overflow-hidden flex-shrink-0">
+                <PropertyPhotoCarousel photos={p.photos || []} altText={p.name} />
+                <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-full text-xs font-bold shadow-sm">
+                  <span className={
+                    p.status === 'available' ? 'text-secondary' : 
+                    p.status === 'rented' ? 'text-primary' : 'text-orange-500'
+                  }>
+                    {p.status === 'available' ? 'Disponível' : 
+                     p.status === 'rented' ? 'Alugado' : 'Manutenção'}
+                  </span>
+                </div>
+                {p.groupName && p.groupName.trim() !== '' && (
+                  <div className="absolute top-4 left-4 px-3 py-1 bg-slate-900/80 dark:bg-slate-100/80 backdrop-blur rounded-full text-xs font-bold shadow-sm text-white dark:text-slate-900 flex items-center gap-1.5">
+                    <MapPin size={12} />
+                    {p.groupName}
+                  </div>
+                )}
               </div>
-            </div>
+              <div className="p-6 flex flex-col flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate pr-2">{p.name}</h3>
+                  <div className="relative flex items-center">
+                    {p.status === 'available' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleShare(p.id); }}
+                        className="p-2 text-primary hover:text-primary/80 rounded-lg hover:bg-primary/10 transition-all mr-1"
+                        title="Compartilhar Link Público"
+                      >
+                        <Share2 size={20} />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setActiveMenu(activeMenu === p.id ? null : p.id)}
+                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                    >
+                      <MoreVertical size={20} />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {activeMenu === p.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                            className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
+                          >
+                            <button 
+                              onClick={() => { handleOpenModal(p); setActiveMenu(null); }}
+                              className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <Edit2 size={16} className="text-primary" /> Editar
+                            </button>
+                            <button 
+                              onClick={() => { handleDelete(p.id); setActiveMenu(null); }}
+                              className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                            >
+                              <Trash2 size={16} /> Excluir
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-4 flex-1">
+                  <MapPin size={16} className="flex-shrink-0" />
+                  <span className="truncate">{p.address}</span>
+                </div>
+                <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Aluguel</p>
+                    <p className="text-lg font-bold text-primary dark:text-white">R$ {p.rentValue.toLocaleString()}</p>
+                  </div>
+                  <button className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    Detalhes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           ))}
         </div>
       ) : (
