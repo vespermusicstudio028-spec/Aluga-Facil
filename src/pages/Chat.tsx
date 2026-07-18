@@ -14,7 +14,7 @@ import { ptBR } from 'date-fns/locale';
 
 interface Tenant {
   id: string;
-  residents: { name: string; email: string }[];
+  residents: { name: string; email: string; photo?: string; isTitular?: boolean }[];
   property_id: string;
   propertyName?: string;
 }
@@ -54,34 +54,63 @@ function groupByDate(messages: ChatMessage[]) {
   return groups;
 }
 
-// Audio player component
-function AudioMessage({ url }: { url: string }) {
+// Gera barras de waveform pseudo-aleatórias mas determinísticas por URL
+function generateBars(seed: string, count = 30): number[] {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) { h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0; }
+  return Array.from({ length: count }, (_, i) => {
+    h = (Math.imul(31, h) + i) | 0;
+    return 20 + Math.abs(h % 80);
+  });
+}
+
+function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const bars = generateBars(url);
+  const BAR_COUNT = bars.length;
+  const activeBars = Math.round((progress / 100) * BAR_COUNT);
 
   const toggle = () => {
     if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); }
-    else { audioRef.current.play(); }
+    if (playing) audioRef.current.pause();
+    else audioRef.current.play();
     setPlaying(!playing);
   };
 
   return (
-    <div className="flex items-center gap-3 min-w-[180px]">
-      <audio ref={audioRef} src={url} onEnded={() => { setPlaying(false); setProgress(0); }}
+    <div className="flex items-center gap-2 min-w-[200px]">
+      <audio ref={audioRef} src={url}
+        onEnded={() => { setPlaying(false); setProgress(0); }}
         onTimeUpdate={() => {
-          if (audioRef.current && audioRef.current.duration) {
+          if (audioRef.current?.duration)
             setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-          }
         }} />
-      <button onClick={toggle} className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-        {playing ? <Pause size={16} /> : <Play size={16} />}
+      <button onClick={toggle}
+        className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center flex-shrink-0 transition-colors">
+        {playing ? <Pause size={14} /> : <Play size={14} />}
       </button>
-      <div className="flex-1 h-1.5 bg-white/30 rounded-full overflow-hidden">
-        <div className="h-full bg-white rounded-full transition-all" style={{ width: `${progress}%` }} />
+      {/* Waveform */}
+      <div className="flex items-center gap-[2px] flex-1 h-8">
+        {bars.map((h, i) => (
+          <div key={i}
+            className="rounded-full flex-shrink-0 transition-colors"
+            style={{
+              width: 3,
+              height: `${Math.max(4, (h / 100) * 32)}px`,
+              background: i < activeBars
+                ? (isOwner ? 'rgba(255,255,255,1)' : '#2563eb')
+                : (isOwner ? 'rgba(255,255,255,0.35)' : 'rgba(37,99,235,0.3)')
+            }}
+          />
+        ))}
       </div>
-      <Mic size={14} className="opacity-60 flex-shrink-0" />
+      <span className="text-[10px] opacity-60 flex-shrink-0 tabular-nums">
+        {audioRef.current?.duration
+          ? `${Math.floor(audioRef.current.duration / 60)}:${String(Math.floor(audioRef.current.duration % 60)).padStart(2, '0')}`
+          : '0:00'}
+      </span>
     </div>
   );
 }
@@ -104,6 +133,7 @@ export default function Chat() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const channelRef = useRef<any>(null);
+  const recordingRef = useRef(false); // evita closure stale
 
   // Fetch tenants
   useEffect(() => {
@@ -219,27 +249,34 @@ export default function Chat() {
     await sendMessage('emoji', emojiData.emoji);
   };
 
-  const startRecording = async () => {
+  // Segurar para gravar
+  const handleMicPointerDown = async (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       audioChunksRef.current = [];
-      mr.ondataavailable = e => audioChunksRef.current.push(e.data);
+      mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
       mr.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
+        if (!recordingRef.current) return; // cancelado
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const url = await uploadMedia(blob, 'webm');
         if (url) await sendMessage('audio', undefined, url);
       };
       mr.start();
       mediaRecorderRef.current = mr;
+      recordingRef.current = true;
       setRecording(true);
-    } catch { alert('Permita acesso ao microfone.'); }
+    } catch { alert('Permita acesso ao microfone para gravar áudio.'); }
   };
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+  const handleMicPointerUp = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
     setRecording(false);
+    recordingRef.current = false;
   };
 
   const filteredTenants = tenants.filter(t => {
@@ -271,12 +308,18 @@ export default function Chat() {
                 <MessageSquare size={40} />
                 <p className="text-sm text-center">Nenhum inquilino cadastrado ainda.</p>
               </div>
-            ) : filteredTenants.map(t => (
+            ) : filteredTenants.map(t => {
+              const titular = t.residents?.find(r => r.isTitular) || t.residents?.[0];
+              return (
               <button key={t.id} onClick={() => { setSelectedTenant(t); setShowSidebar(false); }}
                 className={`w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 ${selectedTenant?.id === t.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}>
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                  {tenantName(t).charAt(0).toUpperCase()}
-                </div>
+                {titular?.photo ? (
+                  <img src={titular.photo} className="w-11 h-11 rounded-full object-cover flex-shrink-0 border-2 border-slate-200 dark:border-slate-700" />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    {tenantName(t).charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center">
                     <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{tenantName(t)}</p>
@@ -289,7 +332,8 @@ export default function Chat() {
                   <p className="text-xs text-slate-500 truncate">{t.propertyName}</p>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -312,9 +356,16 @@ export default function Chat() {
                 <button onClick={() => setShowSidebar(true)} className="md:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
                   <ChevronLeft size={20} />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
-                  {tenantName(selectedTenant).charAt(0).toUpperCase()}
-                </div>
+                {(() => {
+                  const tit = selectedTenant.residents?.find(r => r.isTitular) || selectedTenant.residents?.[0];
+                  return tit?.photo ? (
+                    <img src={tit.photo} className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
+                      {tenantName(selectedTenant).charAt(0).toUpperCase()}
+                    </div>
+                  );
+                })()}
                 <div>
                   <p className="font-bold text-slate-900 dark:text-white">{tenantName(selectedTenant)}</p>
                   <p className="text-xs text-slate-500">{selectedTenant.propertyName}</p>
@@ -348,7 +399,7 @@ export default function Chat() {
                               <img src={msg.media_url} alt="foto" className="max-w-full rounded-xl max-h-60 object-cover cursor-pointer"
                                 onClick={() => window.open(msg.media_url!, '_blank')} />
                             )}
-                            {msg.message_type === 'audio' && msg.media_url && <AudioMessage url={msg.media_url} />}
+                            {msg.message_type === 'audio' && msg.media_url && <AudioMessage url={msg.media_url} isOwner={isOwner} />}
                             <div className={`flex items-center gap-1 mt-1 justify-end ${isOwner ? 'opacity-70' : 'opacity-50'}`}>
                               <span className="text-[10px]">{formatMsgDate(msg.created_at)}</span>
                               {isOwner && (msg.read_by_tenant ? <CheckCheck size={12} /> : <Check size={12} />)}
@@ -404,14 +455,24 @@ export default function Chat() {
                       <Send size={20} />
                     </button>
                   ) : (
-                    <button onClick={recording ? stopRecording : startRecording}
-                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-primary text-white hover:bg-primary/90'}`}>
-                      {recording ? <MicOff size={20} /> : <Mic size={20} />}
+                    <button
+                      onPointerDown={handleMicPointerDown}
+                      onPointerUp={handleMicPointerUp}
+                      onPointerLeave={handleMicPointerUp}
+                      onContextMenu={e => e.preventDefault()}
+                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 select-none touch-none ${
+                        recording ? 'bg-red-500 text-white scale-110 shadow-lg shadow-red-500/40' : 'bg-primary text-white hover:bg-primary/90'
+                      }`}>
+                      <Mic size={20} />
                     </button>
                   )}
                 </div>
                 {recording && (
-                  <p className="text-xs text-red-500 font-medium text-center mt-2 animate-pulse">🔴 Gravando áudio... Clique no microfone para parar</p>
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="text-xs text-red-500 font-bold text-center mt-2 flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse inline-block" />
+                    Gravando... Solte para enviar
+                  </motion.p>
                 )}
               </div>
             </>
