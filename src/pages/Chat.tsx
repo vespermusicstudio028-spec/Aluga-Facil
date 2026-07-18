@@ -268,32 +268,38 @@ export default function Chat() {
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    const { data, error } = await supabase.rpc('send_chat_message', {
-      p_owner_id:       user.uid,
-      p_tenant_id:      selectedTenant.id,
-      p_sender_role:    'owner',
-      p_message_type:   type,
-      p_content:        content || null,
-      p_media_url:      mediaUrl || null,
-      p_read_by_owner:  true,
-      p_read_by_tenant: false,
-    });
-
-    if (error) {
-      console.error('ERRO AO ENVIAR MENSAGEM:', error);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      alert('Falha ao enviar mensagem: ' + error.message);
-    } else if (data) {
-      const saved = (typeof data === 'object' && !Array.isArray(data)) ? data : (data[0] ?? data);
-      setMessages(prev => {
-        const withoutTemp = prev.filter(m => m.id !== tempId);
-        // Evita duplicar se o Realtime ou Polling já trouxe a mensagem
-        if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
-        return [...withoutTemp, saved as ChatMessage];
+    try {
+      const { data, error } = await supabase.rpc('send_chat_message', {
+        p_owner_id:       user.uid,
+        p_tenant_id:      selectedTenant.id,
+        p_sender_role:    'owner',
+        p_message_type:   type,
+        p_content:        content || null,
+        p_media_url:      mediaUrl || null,
+        p_read_by_owner:  true,
+        p_read_by_tenant: false,
       });
-    }
 
-    setSending(false);
+      if (error) {
+        console.error('ERRO AO ENVIAR MENSAGEM:', error);
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        alert('Falha ao enviar mensagem: ' + error.message);
+      } else {
+        // Sucesso
+        const saved = (data && typeof data === 'object' && !Array.isArray(data)) ? data : (data?.[0] ?? data);
+        setMessages(prev => {
+          const withoutTemp = prev.filter(m => m.id !== tempId);
+          if (!saved) return withoutTemp; // Se não retornou data, o Polling traz depois. Limpa a temp!
+          if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
+          return [...withoutTemp, saved as ChatMessage];
+        });
+      }
+    } catch (err: any) {
+      console.error('Exceção ao enviar:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSendText = async () => {

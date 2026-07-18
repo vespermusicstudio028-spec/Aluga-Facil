@@ -201,28 +201,34 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    const { data, error } = await supabase.rpc('send_chat_message', {
-      p_owner_id:       tenant.ownerId,
-      p_tenant_id:      tenant.id,
-      p_sender_role:    'tenant',
-      p_message_type:   type,
-      p_content:        content || null,
-      p_media_url:      mediaUrl || null,
-      p_read_by_owner:  false,
-      p_read_by_tenant: true,
-    });
-
-    if (error) {
-      console.error('ERRO AO ENVIAR:', error);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      alert('Falha ao enviar: ' + error.message);
-    } else if (data) {
-      const saved = (typeof data === 'object' && !Array.isArray(data)) ? data : (data[0] ?? data);
-      setMessages(prev => {
-        const withoutTemp = prev.filter(m => m.id !== tempId);
-        if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
-        return [...withoutTemp, saved as ChatMessage];
+    try {
+      const { data, error } = await supabase.rpc('send_chat_message', {
+        p_owner_id:       tenant.ownerId,
+        p_tenant_id:      tenant.id,
+        p_sender_role:    'tenant',
+        p_message_type:   type,
+        p_content:        content || null,
+        p_media_url:      mediaUrl || null,
+        p_read_by_owner:  false,
+        p_read_by_tenant: true,
       });
+
+      if (error) {
+        console.error('ERRO AO ENVIAR:', error);
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        alert('Falha ao enviar: ' + error.message);
+      } else {
+        const saved = (data && typeof data === 'object' && !Array.isArray(data)) ? data : (data?.[0] ?? data);
+        setMessages(prev => {
+          const withoutTemp = prev.filter(m => m.id !== tempId);
+          if (!saved) return withoutTemp;
+          if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
+          return [...withoutTemp, saved as ChatMessage];
+        });
+      }
+    } catch (err: any) {
+      console.error('Exceção ao enviar:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
   };
 
