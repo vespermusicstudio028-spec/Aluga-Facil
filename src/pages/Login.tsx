@@ -114,7 +114,7 @@ export default function Login() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <Logo className="h-14" />
+          <Logo className="h-14" variant="light" />
         </div>
 
         {/* Main copy */}

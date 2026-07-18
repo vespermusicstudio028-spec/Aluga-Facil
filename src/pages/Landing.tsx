@@ -143,7 +143,7 @@ export default function Landing() {
         <div className="container mx-auto px-6 grid md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <Logo className="h-10" />
+              <Logo className="h-10" variant="light" />
             </div>
             <p className="max-w-md">
               A solução definitiva para proprietários modernos que não abrem mão de uma gestão profissional e descomplicada.
