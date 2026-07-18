@@ -285,21 +285,31 @@ export default function Login() {
                   </div>
                 ) : (
                   /* Google sign in */
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                    className="w-full py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-2xl font-bold text-base flex items-center justify-center gap-3 hover:border-primary/50 hover:shadow-lg transition-all duration-200 shadow-sm"
-                  >
-                    {isLoading ? (
-                      <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-                        Continuar com o Google
-                      </>
-                    )}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={isLoading}
+                      className="w-full py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-2xl font-bold text-base flex items-center justify-center gap-3 hover:border-primary/50 hover:shadow-lg transition-all duration-200 shadow-sm"
+                    >
+                      {isLoading ? (
+                        <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+                          Continuar com o Google
+                        </>
+                      )}
+                    </button>
+
+                    <a
+                      href="#"
+                      className="w-full py-4 bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-3 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all duration-200 shadow-sm border-2 border-slate-700/50"
+                    >
+                      <Smartphone size={22} className="text-emerald-400" />
+                      Baixar nosso Aplicativo
+                    </a>
+                  </div>
                 )}
               </motion.div>
             ) : (
