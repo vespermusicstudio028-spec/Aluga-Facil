@@ -394,6 +394,16 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Botão Flutuante de Chat para o Proprietário */}
+      {location.pathname !== '/chat' && (
+        <Link 
+          to="/chat"
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+        >
+          <MessageSquare size={26} />
+        </Link>
+      )}
     </div>
   );
 }

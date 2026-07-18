@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { LogOut, Home, Users, FileText, DollarSign, Calendar, MapPin, Phone, Mail, FileSignature, RefreshCcw, X, ShieldCheck, QrCode, Eye, EyeOff, Key } from 'lucide-react';
 import { format } from 'date-fns';
 import PaymentAlerts from '../components/PaymentAlerts';
+import TenantChatWidget from '../components/TenantChatWidget';
 
 export default function TenantDashboard() {
   const navigate = useNavigate();
@@ -588,6 +589,11 @@ export default function TenantDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Widget Flutuante do Chat do Inquilino */}
+      {tenant && ownerProfile && (
+        <TenantChatWidget tenant={tenant} ownerInfo={ownerProfile} />
       )}
     </div>
   );
