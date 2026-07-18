@@ -7,11 +7,11 @@ export default function AuthCallback() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    let subscriptionRef: any;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const handleCallback = async () => {
       try {
+        // --- Fluxo PKCE: URL contém ?code= ---
         const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
 
@@ -29,20 +29,36 @@ export default function AuthCallback() {
           }
         }
 
-        // Fallback
+        // --- Fluxo Implícito: URL contém #access_token= ---
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token=')) {
+          // O Supabase detecta o token do hash automaticamente via getSession
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            setError(error.message);
+            timeoutId = setTimeout(() => navigate('/login', { replace: true }), 3000);
+            return;
+          }
+          if (session) {
+            navigate('/dashboard', { replace: true });
+            return;
+          }
+        }
+
+        // --- Fallback: aguarda o evento de autenticação ---
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           if (event === 'SIGNED_IN' && session) {
             subscription.unsubscribe();
+            clearTimeout(timeoutId);
             navigate('/dashboard', { replace: true });
           }
         });
-        subscriptionRef = subscription;
 
-        // Timeout de segurança: 8 segundos
+        // Timeout de segurança: 10 segundos
         timeoutId = setTimeout(() => {
-          if (subscriptionRef) subscriptionRef.unsubscribe();
+          subscription.unsubscribe();
           navigate('/login', { replace: true });
-        }, 8000);
+        }, 10000);
 
       } catch (err: any) {
         console.error('Erro no callback:', err);
@@ -53,10 +69,8 @@ export default function AuthCallback() {
 
     handleCallback();
 
-    // Limpeza rigorosa no Unmount!
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
-      if (subscriptionRef) subscriptionRef.unsubscribe();
     };
   }, [navigate]);
 
@@ -65,7 +79,7 @@ export default function AuthCallback() {
       <div className="flex flex-col items-center justify-center h-screen bg-slate-50 dark:bg-slate-950">
         <p className="text-red-500 font-medium text-lg mb-2">Erro no login</p>
         <p className="text-slate-500 text-sm">{error}</p>
-        <p className="text-slate-400 text-xs mt-4">Redirecionando...</p>
+        <p className="text-slate-400 text-xs mt-4">Redirecionando para o login...</p>
       </div>
     );
   }
