@@ -184,11 +184,9 @@ export default function Chat() {
     const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
     
     setMessages(prev => {
-      // Preserva mensagens temporárias que ainda estão sendo enviadas
-      const tempMsgs = prev.filter(m => m.id.startsWith('temp_'));
       // Apenas atualiza se houver diferença real para evitar re-renders desnecessários
-      if (prev.length === msgs.length + tempMsgs.length) return prev;
-      return [...msgs, ...tempMsgs];
+      if (prev.length === msgs.length) return prev;
+      return msgs;
     });
 
     // Mark as read
@@ -252,22 +250,6 @@ export default function Chat() {
     if (!user || !selectedTenant) return;
     setSending(true);
 
-    // Optimistic update: mostra a mensagem na tela imediatamente
-    const tempId = `temp_${Date.now()}`;
-    const tempMsg: ChatMessage = {
-      id: tempId,
-      owner_id: user.uid,
-      tenant_id: selectedTenant.id,
-      sender_role: 'owner',
-      message_type: type,
-      content: content || null,
-      media_url: mediaUrl || null,
-      read_by_owner: true,
-      read_by_tenant: false,
-      created_at: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempMsg]);
-
     try {
       const { data, error } = await supabase.rpc('send_chat_message', {
         p_owner_id:       user.uid,
@@ -282,21 +264,19 @@ export default function Chat() {
 
       if (error) {
         console.error('ERRO AO ENVIAR MENSAGEM:', error);
-        setMessages(prev => prev.filter(m => m.id !== tempId));
         alert('Falha ao enviar mensagem: ' + error.message);
       } else {
         // Sucesso
         const saved = (data && typeof data === 'object' && !Array.isArray(data)) ? data : (data?.[0] ?? data);
-        setMessages(prev => {
-          const withoutTemp = prev.filter(m => m.id !== tempId);
-          if (!saved) return withoutTemp; // Se não retornou data, o Polling traz depois. Limpa a temp!
-          if (withoutTemp.some(m => m.id === saved.id)) return withoutTemp;
-          return [...withoutTemp, saved as ChatMessage];
-        });
+        if (saved) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === saved.id)) return prev;
+            return [...prev, saved as ChatMessage];
+          });
+        }
       }
     } catch (err: any) {
       console.error('Exceção ao enviar:', err);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
     } finally {
       setSending(false);
     }
