@@ -153,13 +153,21 @@ export default function Chat() {
   useEffect(() => {
     if (!user || tenants.length === 0) return;
     const fetchUnread = async () => {
-      const { data } = await supabase.from('chat_messages')
-        .select('tenant_id')
-        .eq('owner_id', user.uid)
-        .eq('read_by_owner', false)
-        .eq('sender_role', 'tenant');
+      const { data } = await supabase.rpc('get_chat_messages', {
+        p_owner_id: user.uid,
+        p_tenant_id: tenants[0]?.id  // placeholder para ativar a função
+      });
+      // Conta por tenant
       const counts: Record<string, number> = {};
-      (data || []).forEach(m => { counts[m.tenant_id] = (counts[m.tenant_id] || 0) + 1; });
+      const allMsgs: any[] = [];
+      for (const t of tenants) {
+        const { data: tData } = await supabase.rpc('get_chat_messages', {
+          p_owner_id: user.uid,
+          p_tenant_id: t.id
+        });
+        (tData || []).filter((m: any) => m.sender_role === 'tenant' && !m.read_by_owner)
+          .forEach(() => { counts[t.id] = (counts[t.id] || 0) + 1; });
+      }
       setUnreadMap(counts);
     };
     fetchUnread();
@@ -168,18 +176,17 @@ export default function Chat() {
   // Load messages for selected tenant
   const loadMessages = useCallback(async (tenantId: string) => {
     if (!user) return;
-    const { data } = await supabase.from('chat_messages')
-      .select('*')
-      .eq('owner_id', user.uid)
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: true });
+    const { data } = await supabase.rpc('get_chat_messages', {
+      p_owner_id: user.uid,
+      p_tenant_id: tenantId
+    });
     setMessages(data || []);
     // Mark as read
-    await supabase.from('chat_messages')
-      .update({ read_by_owner: true })
-      .eq('owner_id', user.uid)
-      .eq('tenant_id', tenantId)
-      .eq('sender_role', 'tenant');
+    await supabase.rpc('mark_chat_read', {
+      p_owner_id: user.uid,
+      p_tenant_id: tenantId,
+      p_reader: 'owner'
+    });
     setUnreadMap(prev => ({ ...prev, [tenantId]: 0 }));
   }, [user]);
 
@@ -218,8 +225,9 @@ export default function Chat() {
     setSending(true);
 
     // Optimistic update: mostra a mensagem na tela imediatamente
+    const tempId = `temp_${Date.now()}`;
     const tempMsg: ChatMessage = {
-      id: `temp_${Date.now()}`,
+      id: tempId,
       owner_id: user.uid,
       tenant_id: selectedTenant.id,
       sender_role: 'owner',
@@ -232,25 +240,23 @@ export default function Chat() {
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    const { data, error } = await supabase.from('chat_messages').insert({
-      owner_id: user.uid,
-      tenant_id: selectedTenant.id,
-      sender_role: 'owner',
-      message_type: type,
-      content: content || null,
-      media_url: mediaUrl || null,
-      read_by_owner: true,
-      read_by_tenant: false,
-    }).select().single();
+    const { data, error } = await supabase.rpc('send_chat_message', {
+      p_owner_id:       user.uid,
+      p_tenant_id:      selectedTenant.id,
+      p_sender_role:    'owner',
+      p_message_type:   type,
+      p_content:        content || null,
+      p_media_url:      mediaUrl || null,
+      p_read_by_owner:  true,
+      p_read_by_tenant: false,
+    });
 
     if (error) {
       console.error('ERRO AO ENVIAR MENSAGEM:', error);
-      // Reverte o optimistic update em caso de erro
-      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('Falha ao enviar mensagem: ' + error.message);
-    } else if (data) {
-      // Substitui a mensagem temporária pela real (com ID real do banco)
-      setMessages(prev => prev.map(m => m.id === tempMsg.id ? data as ChatMessage : m));
+    } else if (data && data[0]) {
+      setMessages(prev => prev.map(m => m.id === tempId ? data[0] as ChatMessage : m));
     }
 
     setSending(false);

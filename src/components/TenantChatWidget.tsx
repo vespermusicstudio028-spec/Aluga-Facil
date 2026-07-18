@@ -104,15 +104,15 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     if (!tenant?.id || !tenant?.ownerId) return;
 
     const loadMessages = async () => {
-      const { data } = await supabase.from('chat_messages')
-        .select('*')
-        .eq('tenant_id', tenant.id)
-        .order('created_at', { ascending: true });
+      const { data } = await supabase.rpc('get_chat_messages', {
+        p_owner_id: tenant.ownerId,
+        p_tenant_id: tenant.id
+      });
       
       setMessages(data || []);
       
       // Calculate unread
-      const unread = (data || []).filter(m => m.sender_role === 'owner' && !m.read_by_tenant).length;
+      const unread = (data || []).filter((m: any) => m.sender_role === 'owner' && !m.read_by_tenant).length;
       setUnreadCount(unread);
     };
 
@@ -127,9 +127,11 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
         filter: `tenant_id=eq.${tenant.id}` 
       }, (payload) => {
         const msg = payload.new as ChatMessage;
-        setMessages(prev => [...prev, msg]);
-        
-        // Update unread badge if closed and it's from owner
+        setMessages(prev => {
+          // Evita duplicatas com optimistic update
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
         if (msg.sender_role === 'owner') {
           setUnreadCount(prev => prev + 1);
         }
@@ -144,13 +146,13 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   // Read messages when open
   useEffect(() => {
     if (isOpen && unreadCount > 0) {
-      supabase.from('chat_messages')
-        .update({ read_by_tenant: true })
-        .eq('tenant_id', tenant.id)
-        .eq('sender_role', 'owner')
-        .then(() => setUnreadCount(0));
+      supabase.rpc('mark_chat_read', {
+        p_owner_id: tenant.ownerId,
+        p_tenant_id: tenant.id,
+        p_reader: 'tenant'
+      }).then(() => setUnreadCount(0));
     }
-  }, [isOpen, unreadCount, tenant.id, messages]);
+  }, [isOpen, tenant]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -167,9 +169,10 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   const sendMessage = async (type: ChatMessage['message_type'], content?: string, mediaUrl?: string) => {
     if (!tenant?.id) return;
 
-    // Optimistic update: mostra imediatamente
+    // Optimistic update
+    const tempId = `temp_${Date.now()}`;
     const tempMsg: ChatMessage = {
-      id: `temp_${Date.now()}`,
+      id: tempId,
       owner_id: tenant.ownerId,
       tenant_id: tenant.id,
       sender_role: 'tenant',
@@ -182,23 +185,23 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    const { data, error } = await supabase.from('chat_messages').insert({
-      owner_id: tenant.ownerId,
-      tenant_id: tenant.id,
-      sender_role: 'tenant',
-      message_type: type,
-      content: content || null,
-      media_url: mediaUrl || null,
-      read_by_owner: false,
-      read_by_tenant: true,
-    }).select().single();
+    const { data, error } = await supabase.rpc('send_chat_message', {
+      p_owner_id:       tenant.ownerId,
+      p_tenant_id:      tenant.id,
+      p_sender_role:    'tenant',
+      p_message_type:   type,
+      p_content:        content || null,
+      p_media_url:      mediaUrl || null,
+      p_read_by_owner:  false,
+      p_read_by_tenant: true,
+    });
 
     if (error) {
-      console.error('ERRO AO ENVIAR MENSAGEM:', error);
-      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
-      alert('Falha ao enviar mensagem: ' + error.message);
-    } else if (data) {
-      setMessages(prev => prev.map(m => m.id === tempMsg.id ? data as ChatMessage : m));
+      console.error('ERRO AO ENVIAR:', error);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      alert('Falha ao enviar: ' + error.message);
+    } else if (data && data[0]) {
+      setMessages(prev => prev.map(m => m.id === tempId ? data[0] as ChatMessage : m));
     }
   };
 
