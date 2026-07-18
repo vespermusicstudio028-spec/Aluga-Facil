@@ -96,7 +96,8 @@ export default function TenantDashboard() {
       if (info?.owner) {
         setOwnerProfile({
           name: info.owner.name,
-          email: info.owner.email
+          email: info.owner.email,
+          photo: info.owner.photo_url || info.owner.photoURL
         });
       }
 

@@ -251,12 +251,16 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
             {/* Header */}
             <div className="bg-gradient-to-r from-primary to-secondary p-4 flex items-center justify-between shadow-md shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
-                  {ownerInfo?.name?.charAt(0).toUpperCase() || 'P'}
-                </div>
+                {ownerInfo?.photo ? (
+                  <img src={ownerInfo.photo} alt="Proprietário" className="w-10 h-10 rounded-full object-cover border-2 border-white/20" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
+                    {ownerInfo?.name?.charAt(0).toUpperCase() || 'P'}
+                  </div>
+                )}
                 <div>
-                  <h3 className="font-bold text-white leading-tight">{ownerInfo?.name || 'Proprietário'}</h3>
-                  <p className="text-white/70 text-xs">Administrador</p>
+                  <h3 className="font-bold text-white leading-tight">{ownerInfo?.name || 'Seu Proprietário'}</h3>
+                  <p className="text-white/70 text-xs">Proprietário</p>
                 </div>
               </div>
               <button 
