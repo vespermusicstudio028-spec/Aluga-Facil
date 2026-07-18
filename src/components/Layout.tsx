@@ -43,6 +43,7 @@ export default function Layout({ children }: LayoutProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +81,37 @@ export default function Layout({ children }: LayoutProps) {
 
     return () => { supabase.removeChannel(channel); };
   }, [user]);
+
+  // Conta mensagens não lidas de todos os inquilinos (polling a cada 15s)
+  useEffect(() => {
+    if (!user || location.pathname === '/chat') return;
+
+    const fetchChatUnread = async () => {
+      try {
+        const { data: tenants } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('owner_id', user.uid);
+
+        if (!tenants || tenants.length === 0) { setChatUnread(0); return; }
+
+        let total = 0;
+        for (const t of tenants) {
+          const { data: msgs } = await supabase.rpc('get_chat_messages', {
+            p_owner_id: user.uid,
+            p_tenant_id: t.id
+          });
+          const arr = Array.isArray(msgs) ? msgs : [];
+          total += arr.filter((m: any) => m.sender_role === 'tenant' && !m.read_by_owner).length;
+        }
+        setChatUnread(total);
+      } catch {}
+    };
+
+    fetchChatUnread();
+    const interval = setInterval(fetchChatUnread, 15000);
+    return () => clearInterval(interval);
+  }, [user, location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -399,9 +431,14 @@ export default function Layout({ children }: LayoutProps) {
       {location.pathname !== '/chat' && (
         <Link 
           to="/chat"
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform relative"
         >
           <MessageSquare size={26} />
+          {chatUnread > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow">
+              {chatUnread > 9 ? '9+' : chatUnread}
+            </span>
+          )}
         </Link>
       )}
     </div>

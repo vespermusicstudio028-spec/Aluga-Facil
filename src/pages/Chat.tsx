@@ -12,6 +12,15 @@ import { useTheme } from '../contexts/ThemeContext';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// Helper: garante que o retorno da RPC (que pode ser string JSON ou objeto) seja um valor parseado
+function safeParseJson<T>(val: unknown): T | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'string') {
+    try { return JSON.parse(val) as T; } catch { return null; }
+  }
+  return val as T;
+}
+
 interface Tenant {
   id: string;
   residents: { name: string; email: string; photo?: string; isTitular?: boolean }[];
@@ -120,6 +129,7 @@ export default function Chat() {
   const { theme } = useTheme();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  // Mantém ref sincronizada para uso em callbacks assíncronos (onstop, etc.)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -134,6 +144,8 @@ export default function Chat() {
   const audioChunksRef = useRef<Blob[]>([]);
   const channelRef = useRef<any>(null);
   const recordingRef = useRef(false); // evita closure stale
+  const selectedTenantRef = useRef<Tenant | null>(null); // evita closure stale no onstop
+  const userRef = useRef(user); // evita closure stale no onstop
 
   // Fetch tenants
   useEffect(() => {
@@ -181,13 +193,12 @@ export default function Chat() {
     });
     if (error) console.error('get_chat_messages error:', error);
     
-    const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
+    // get_chat_messages retorna json (PostgreSQL) que pode vir como string no SDK
+    const rawData = safeParseJson<ChatMessage[]>(data);
+    const msgs: ChatMessage[] = Array.isArray(rawData) ? rawData : [];
     
-    setMessages(prev => {
-      // Apenas atualiza se houver diferença real para evitar re-renders desnecessários
-      if (prev.length === msgs.length) return prev;
-      return msgs;
-    });
+    console.log('[LOAD] Mensagens do banco:', msgs.length, msgs.map((m: ChatMessage) => m.message_type));
+    setMessages(msgs);
 
     // Mark as read
     await supabase.rpc('mark_chat_read', {
@@ -196,6 +207,14 @@ export default function Chat() {
       p_reader: 'owner'
     });
     setUnreadMap(prev => ({ ...prev, [tenantId]: 0 }));
+  }, [user]);
+
+  // Sincroniza refs com os estados (para uso em callbacks assíncronos)
+  useEffect(() => {
+    selectedTenantRef.current = selectedTenant;
+  }, [selectedTenant]);
+  useEffect(() => {
+    userRef.current = user;
   }, [user]);
 
   useEffect(() => {
@@ -239,10 +258,18 @@ export default function Chat() {
   }, [messages]);
 
   const uploadMedia = async (blob: Blob, ext: string): Promise<string | null> => {
-    const path = `${user!.uid}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('chat-media').upload(path, blob, { upsert: true });
-    if (error) return null;
+    const uid = userRef.current?.uid || user?.uid;
+    if (!uid) { console.error('[AUDIO] user uid null no uploadMedia'); return null; }
+    const path = `${uid}/${Date.now()}.${ext}`;
+    console.log('[AUDIO] Fazendo upload:', path, 'tamanho:', blob.size, 'tipo:', blob.type);
+    const { error } = await supabase.storage.from('chat-media').upload(path, blob, { upsert: true, contentType: blob.type || 'audio/webm' });
+    if (error) {
+      console.error('[AUDIO] Erro no upload do Storage:', error);
+      alert('Erro no upload do áudio: ' + error.message);
+      return null;
+    }
     const { data } = supabase.storage.from('chat-media').getPublicUrl(path);
+    console.log('[AUDIO] Upload OK, URL pública:', data.publicUrl);
     return data.publicUrl;
   };
 
@@ -267,7 +294,7 @@ export default function Chat() {
         alert('Falha ao enviar mensagem: ' + error.message);
       } else {
         // Sucesso
-        const saved = (data && typeof data === 'object' && !Array.isArray(data)) ? data : (data?.[0] ?? data);
+        const saved = safeParseJson<ChatMessage>(data) || (Array.isArray(data) ? data[0] : data);
         if (saved) {
           setMessages(prev => {
             if (prev.some(m => m.id === saved.id)) return prev;
@@ -307,20 +334,64 @@ export default function Chat() {
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      // Tenta WebM, senão cai para o formato padrão do browser
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       audioChunksRef.current = [];
-      mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
+      mr.ondataavailable = ev => { if (ev.data.size > 0) audioChunksRef.current.push(ev.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        // 'cancelado' é lido antes de qualquer limpeza de estado
-        const wasRecording = recordingRef.current;
-        if (!wasRecording) return;
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (blob.size < 1000) return; // ignora gravações muito curtas
-        const url = await uploadMedia(blob, 'webm');
-        if (url) await sendMessage('audio', undefined, url);
+        const chunks = audioChunksRef.current;
+        console.log('[AUDIO] onstop disparado. Chunks:', chunks.length, 'Sizes:', chunks.map(c => c.size));
+        const blobType = mr.mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: blobType });
+        console.log('[AUDIO] Blob criado. Tamanho:', blob.size, 'Tipo:', blob.type);
+        setRecording(false);
+        recordingRef.current = false;
+        if (blob.size < 100) {
+          console.warn('[AUDIO] Blob muito pequeno, ignorando:', blob.size);
+          return;
+        }
+        const ext = blobType.includes('ogg') ? 'ogg' : blobType.includes('mp4') ? 'mp4' : 'webm';
+        const url = await uploadMedia(blob, ext);
+        if (!url) { console.error('[AUDIO] Upload falhou, url null'); return; }
+        const currentTenant = selectedTenantRef.current;
+        const currentUser = userRef.current;
+        console.log('[AUDIO] Tenant:', currentTenant?.id, 'User:', currentUser?.uid);
+        if (!currentTenant || !currentUser) {
+          console.error('[AUDIO] Tenant ou User null no onstop!');
+          return;
+        }
+        console.log('[AUDIO] Chamando send_chat_message...');
+        const { data: msgData, error: msgError } = await supabase.rpc('send_chat_message', {
+          p_owner_id:       currentUser.uid,
+          p_tenant_id:      currentTenant.id,
+          p_sender_role:    'owner',
+          p_message_type:   'audio',
+          p_content:        null,
+          p_media_url:      url,
+          p_read_by_owner:  true,
+          p_read_by_tenant: false,
+        });
+        if (msgError) {
+          console.error('[AUDIO] Erro no send_chat_message:', msgError);
+          alert('Erro ao salvar áudio: ' + msgError.message);
+          return;
+        }
+        console.log('[AUDIO] send_chat_message OK. Resposta:', msgData);
+        // Adiciona direto no estado para mostrar imediatamente
+        const saved = safeParseJson<ChatMessage>(msgData) || (Array.isArray(msgData) ? msgData[0] : msgData);
+        if (saved?.id) {
+          setMessages(prev => prev.some(m => m.id === saved.id) ? prev : [...prev, saved as ChatMessage]);
+        }
+        // E tb forca reload para garantir
+        await loadMessages(currentTenant.id);
       };
-      mr.start();
+      mr.start(100); // coleta dados a cada 100ms para garantir chunks
       mediaRecorderRef.current = mr;
       recordingRef.current = true;
       setRecording(true);
@@ -328,16 +399,14 @@ export default function Chat() {
   };
 
   const handleMicPointerUp = () => {
-    // Para a gravação ANTES de limpar o recordingRef,
-    // para que o onstop ainda veja recordingRef = true e processe o áudio
+    // Para a gravação; o processamento acontece no onstop
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
-    }
-    // Limpa o estado de gravação APÓS o stop()
-    setTimeout(() => {
+    } else {
+      // Caso o recorder não tenha iniciado (pointerup muito rápido)
       setRecording(false);
       recordingRef.current = false;
-    }, 100);
+    }
   };
 
   const filteredTenants = tenants.filter(t => {
