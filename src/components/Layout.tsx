@@ -20,7 +20,8 @@ import {
   Bell,
   Check,
   MessageSquare,
-  Users as UsersIcon
+  Users as UsersIcon,
+  Crown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -166,6 +167,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const secondaryItems = [
     { icon: <User size={20} />, label: 'Perfil', path: '/profile' },
+    { icon: <Crown size={20} />, label: 'Meu Plano', path: '/plan' },
     { icon: <Settings size={20} />, label: 'Configurações', path: '/settings' },
   ];
 

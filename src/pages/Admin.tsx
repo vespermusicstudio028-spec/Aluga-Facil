@@ -47,6 +47,7 @@ export default function Admin() {
   
   // Pricing Settings
   const [pricing, setPricing] = useState({ basic: 0, pro: 49.90, premium: 99.90 });
+  const [mpLinks, setMpLinks] = useState({ basic: '', pro: '', premium: '' });
   const [savingPricing, setSavingPricing] = useState(false);
 
   // Stats
@@ -92,6 +93,9 @@ export default function Admin() {
           if (prev.basic === basic && prev.pro === pro && prev.premium === premium) return prev;
           return { basic, pro, premium };
         });
+        if (data.value.links) {
+          setMpLinks(data.value.links);
+        }
       }
     } catch(e) {}
   }, []);
@@ -268,7 +272,7 @@ export default function Admin() {
     try {
       await supabase.from('global_settings').upsert({
         key: 'pricing',
-        value: pricing
+        value: { ...pricing, links: mpLinks }
       });
       alert("Configurações salvas com sucesso!");
       fetchData(); // Recalculate MRR
@@ -514,18 +518,26 @@ export default function Admin() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Configurações Globais</h3>
             <p className="text-sm text-slate-500 mb-6">Ajuste os valores dos planos para refletir no cálculo de Receita (MRR).</p>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Basic (R$)</label>
-                <input type="number" step="0.01" value={pricing.basic} onChange={e => setPricing({...pricing, basic: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Professional (R$)</label>
-                <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({...pricing, pro: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Premium (R$)</label>
-                <input type="number" step="0.01" value={pricing.premium} onChange={e => setPricing({...pricing, premium: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Basic (R$)</label>
+                  <input type="number" step="0.01" value={pricing.basic} onChange={e => setPricing({...pricing, basic: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Basic)</label>
+                  <input type="text" value={mpLinks.basic} onChange={e => setMpLinks({...mpLinks, basic: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Professional (R$)</label>
+                  <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({...pricing, pro: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Pro)</label>
+                  <input type="text" value={mpLinks.pro} onChange={e => setMpLinks({...mpLinks, pro: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Premium (R$)</label>
+                  <input type="number" step="0.01" value={pricing.premium} onChange={e => setPricing({...pricing, premium: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Premium)</label>
+                  <input type="text" value={mpLinks.premium} onChange={e => setMpLinks({...mpLinks, premium: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                </div>
               </div>
               
               <button disabled={savingPricing} onClick={saveSettings} className="w-full mt-4 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-colors">

@@ -45,6 +45,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import TenantDashboard from './pages/TenantDashboard';
 import Admin from './pages/Admin';
+import MyPlan from './pages/MyPlan';
 import PublicPropertyFlow from './pages/PublicPropertyFlow';
 import AuthCallback from './pages/AuthCallback';
 import Chat from './pages/Chat';
@@ -100,7 +101,7 @@ function AppRoutes() {
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      
+      <Route path="/plan" element={<ProtectedRoute><MyPlan /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
     </Routes>
