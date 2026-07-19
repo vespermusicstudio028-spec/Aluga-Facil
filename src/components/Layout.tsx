@@ -19,7 +19,8 @@ import {
   Moon,
   Bell,
   Check,
-  MessageSquare
+  MessageSquare,
+  Users as UsersIcon
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -453,11 +454,24 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
+      {/* Botão Flutuante de Inquilinos */}
+      {location.pathname !== '/tenants' && (
+        <Link
+          to="/tenants"
+          className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
+        >
+          <UsersIcon size={26} />
+          <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+            Inquilinos
+          </span>
+        </Link>
+      )}
+
       {/* Botão Flutuante de Chat para o Proprietário */}
       {location.pathname !== '/chat' && (
       <Link 
           to="/chat"
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
         >
           <div className="relative flex items-center justify-center w-full h-full">
             <MessageSquare size={26} />
@@ -467,6 +481,9 @@ export default function Layout({ children }: LayoutProps) {
               </span>
             )}
           </div>
+          <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+            Chat
+          </span>
         </Link>
       )}
     </div>
