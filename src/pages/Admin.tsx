@@ -160,12 +160,16 @@ export default function Admin() {
     }
   }, []);
 
+  // Carrega as configurações globais apenas uma vez
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  // Atualiza os dados da aba ativa
   useEffect(() => { 
-    fetchSettings().then(() => {
-      if (activeTab === 'overview') fetchData();
-    });
+    if (activeTab === 'overview') fetchData();
     if (activeTab === 'activities') fetchActivities();
-  }, [fetchData, fetchActivities, fetchSettings, activeTab]);
+  }, [fetchData, fetchActivities, activeTab]);
 
   // Realtime overview
   useEffect(() => {
