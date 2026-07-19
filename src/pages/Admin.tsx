@@ -316,9 +316,13 @@ export default function Admin() {
                     <tr key={u.uid} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                            {u.name?.charAt(0)?.toUpperCase()}
-                          </div>
+                          {u.photoURL ? (
+                            <img src={u.photoURL} alt={u.name} className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                              {u.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <p className="font-semibold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
                               {u.name}
@@ -439,9 +443,13 @@ export default function Admin() {
               </div>
               <div className="px-6 pb-6 relative">
                 <div className="w-20 h-20 -mt-10 rounded-2xl bg-white dark:bg-slate-900 p-1.5 shadow-lg mb-4">
-                  <div className="w-full h-full bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-2xl font-bold text-primary">
-                    {selectedUser.name?.charAt(0).toUpperCase()}
-                  </div>
+                  {selectedUser.photoURL ? (
+                    <img src={selectedUser.photoURL} alt={selectedUser.name} className="w-full h-full object-cover rounded-xl" />
+                  ) : (
+                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-2xl font-bold text-primary">
+                      {selectedUser.name?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedUser.name}</h2>
                 <p className="text-slate-500 mb-6">{selectedUser.email}</p>
@@ -469,6 +477,16 @@ export default function Admin() {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Cadastro:</span>
                     <span className="font-medium text-slate-900 dark:text-white">{selectedUser.createdAt ? format(new Date(selectedUser.createdAt), "dd/MM/yyyy") : 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Renovação / Expiração:</span>
+                    <span className="font-medium text-slate-900 dark:text-white">
+                      {selectedUser.plan === 'basic' 
+                        ? 'Plano Gratuito (Vitalício)' 
+                        : (selectedUser.createdAt 
+                            ? `Todo dia ${new Date(selectedUser.createdAt).getDate()}` 
+                            : 'N/A')}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Plano Atual:</span>
