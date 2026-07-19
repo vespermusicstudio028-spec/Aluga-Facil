@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { Crown, Check, ExternalLink } from 'lucide-react';
+import { Crown, Check, ExternalLink, AlertCircle, Clock } from 'lucide-react';
+import { differenceInDays, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { UserPlan } from '../types';
@@ -10,6 +12,24 @@ export default function MyPlan() {
   const [pricing, setPricing] = useState({ basic: 0, pro: 49.90, premium: 99.90 });
   const [mpLinks, setMpLinks] = useState({ basic: '', pro: '', premium: '' });
   const [loading, setLoading] = useState(true);
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [nextExp, setNextExp] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (user?.createdAt && user.plan !== 'basic') {
+      const created = new Date(user.createdAt);
+      const now = new Date();
+      let exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
+      
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (exp.getTime() < startOfToday.getTime()) {
+        exp.setMonth(exp.getMonth() + 1);
+      }
+      
+      setNextExp(exp);
+      setDaysLeft(differenceInDays(exp, startOfToday));
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -43,6 +63,20 @@ export default function MyPlan() {
 
   const isCurrentPlan = (planId: UserPlan) => user?.plan === planId;
 
+  const getExpirationText = () => {
+    if (daysLeft === null) return '';
+    if (daysLeft === 0) return 'Vence Hoje!';
+    if (daysLeft === 1) return 'Vence Amanhã!';
+    return `Vence em ${String(daysLeft).padStart(2, '0')} dias`;
+  };
+  
+  const getAlertColor = () => {
+    if (daysLeft === null) return 'hidden';
+    if (daysLeft <= 3) return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800';
+    if (daysLeft <= 10) return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
+    return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
+  };
+
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
@@ -55,6 +89,22 @@ export default function MyPlan() {
             <p className="text-slate-500 dark:text-slate-400">Gerencie sua assinatura e renove seu plano com segurança via Mercado Pago.</p>
           </div>
         </div>
+
+        {/* ALERTA DE VENCIMENTO */}
+        {user?.plan !== 'basic' && daysLeft !== null && (
+          <div className={`mb-8 p-4 rounded-2xl border flex items-center gap-4 shadow-sm ${getAlertColor()}`}>
+            <div className="p-2 bg-white/50 dark:bg-black/20 rounded-xl shrink-0">
+              {daysLeft <= 3 ? <AlertCircle size={24} /> : <Clock size={24} />}
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-lg">{getExpirationText()}</h4>
+              <p className="text-sm opacity-90 mt-0.5">
+                Sua assinatura atual ({user?.plan}) expira em <strong>{nextExp ? format(nextExp, "dd 'de' MMMM", { locale: ptBR }) : ''}</strong>. 
+                {daysLeft <= 10 ? ' Renove agora para não perder o acesso às funcionalidades!' : ' Fique tranquilo, você ainda tem tempo de sobra.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="animate-pulse flex gap-4">
