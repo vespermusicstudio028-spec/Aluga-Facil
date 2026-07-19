@@ -170,7 +170,7 @@ export default function Layout({ children }: LayoutProps) {
   ];
 
   if (user?.role === 'admin') {
-    menuItems.push({ icon: <ShieldCheck size={20} />, label: 'Admin', path: '/admin' } as any);
+    menuItems.unshift({ icon: <ShieldCheck size={20} />, label: 'Admin', path: '/admin' } as any);
   }
 
   const handleLogout = async () => {

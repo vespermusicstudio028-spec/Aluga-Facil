@@ -87,6 +87,20 @@ export default function Admin() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Realtime: escuta mudanças em profiles, properties e tenants
+  useEffect(() => {
+    if (currentUser?.role !== 'admin') return;
+
+    const channel = supabase
+      .channel('admin_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => fetchData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser, fetchData]);
+
   // Filter logic
   useEffect(() => {
     let list = [...users];

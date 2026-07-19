@@ -68,6 +68,15 @@ const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.Re
   return <>{children}</>;
 };
 
+// Redireciona admin para /admin automaticamente ao acessar /dashboard
+const AdminRedirect = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const isOauthCallback = window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token');
+  if (loading || isOauthCallback) return null;
+  if (user?.role === 'admin') return <Navigate to="/admin" replace />;
+  return <>{children}</>;
+};
+
 function AppRoutes() {
   return (
     <Routes>
@@ -78,7 +87,7 @@ function AppRoutes() {
       <Route path="/tenant-dashboard" element={<TenantDashboard />} />
       <Route path="/register" element={<Register />} />
       
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><AdminRedirect><Dashboard /></AdminRedirect></ProtectedRoute>} />
       <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
       <Route path="/properties/:id" element={<ProtectedRoute><PropertyDetails /></ProtectedRoute>} />
       <Route path="/tenants" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
