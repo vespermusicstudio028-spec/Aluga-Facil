@@ -46,7 +46,7 @@ export default function Admin() {
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   
   // Pricing Settings
-  const [pricing, setPricing] = useState({ pro: 49.90, premium: 99.90 });
+  const [pricing, setPricing] = useState({ basic: 0, pro: 49.90, premium: 99.90 });
   const [savingPricing, setSavingPricing] = useState(false);
 
   // Stats
@@ -86,10 +86,11 @@ export default function Admin() {
       const { data } = await supabase.from('global_settings').select('*').eq('key', 'pricing').single();
       if (data && data.value) {
         setPricing(prev => {
+          const basic = data.value.basic || 0;
           const pro = data.value.pro || 49.90;
           const premium = data.value.premium || 99.90;
-          if (prev.pro === pro && prev.premium === premium) return prev;
-          return { pro, premium };
+          if (prev.basic === basic && prev.pro === pro && prev.premium === premium) return prev;
+          return { basic, pro, premium };
         });
       }
     } catch(e) {}
@@ -120,6 +121,7 @@ export default function Admin() {
       let mrr = 0;
       userList.forEach(u => {
         if (u.status === 'active') {
+          if (u.plan === 'basic') mrr += pricing.basic;
           if (u.plan === 'professional') mrr += pricing.pro;
           if (u.plan === 'premium') mrr += pricing.premium;
         }
@@ -138,7 +140,7 @@ export default function Admin() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, pricing.pro, pricing.premium]);
+  }, [currentUser, pricing.basic, pricing.pro, pricing.premium]);
 
   const fetchActivities = useCallback(async () => {
     setLoadingActivities(true);
@@ -509,6 +511,10 @@ export default function Admin() {
             <p className="text-sm text-slate-500 mb-6">Ajuste os valores dos planos para refletir no cálculo de Receita (MRR).</p>
             
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Basic (R$)</label>
+                <input type="number" step="0.01" value={pricing.basic} onChange={e => setPricing({...pricing, basic: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Professional (R$)</label>
                 <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({...pricing, pro: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
