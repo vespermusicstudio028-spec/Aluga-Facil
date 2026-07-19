@@ -82,49 +82,44 @@ export default function Layout({ children }: LayoutProps) {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Conta mensagens não lidas de todos os inquilinos (polling a cada 15s)
+  // Conta mensagens não lidas de todos os inquilinos
   useEffect(() => {
     if (!user || location.pathname === '/chat') return;
 
     const fetchChatUnread = async () => {
       try {
-        const { data: tenants } = await supabase
-          .from('tenants')
+        // Query direta na tabela chat_messages — mais rápido que chamar RPC por tenant
+        const { data, error } = await supabase
+          .from('chat_messages')
           .select('id')
-          .eq('owner_id', user.uid);
+          .eq('owner_id', user.uid)
+          .eq('sender_role', 'tenant')
+          .eq('read_by_owner', false);
 
-        if (!tenants || tenants.length === 0) { setChatUnread(0); return; }
-
-        let total = 0;
-        for (const t of tenants) {
-          const { data: msgs } = await supabase.rpc('get_chat_messages', {
-            p_owner_id: user.uid,
-            p_tenant_id: t.id
-          });
-          const arr = Array.isArray(msgs) ? msgs : [];
-          total += arr.filter((m: any) => m.sender_role === 'tenant' && !m.read_by_owner).length;
-        }
-        setChatUnread(total);
+        if (error) throw error;
+        setChatUnread(data?.length ?? 0);
       } catch {}
     };
 
     fetchChatUnread();
-    
-    // Polling de fallback
-    const interval = setInterval(fetchChatUnread, 30000);
 
-    // Real-time updates via Supabase
+    // Polling de fallback a cada 60s
+    const interval = setInterval(fetchChatUnread, 60000);
+
+    // Real-time: escuta INSERT e UPDATE na tabela CORRETA (chat_messages)
     const channel = supabase
       .channel('chat_unread_' + user.uid)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'messages'
+        table: 'chat_messages',
+        filter: `owner_id=eq.${user.uid}`
       }, () => fetchChatUnread())
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'messages'
+        table: 'chat_messages',
+        filter: `owner_id=eq.${user.uid}`
       }, () => fetchChatUnread())
       .subscribe();
 
