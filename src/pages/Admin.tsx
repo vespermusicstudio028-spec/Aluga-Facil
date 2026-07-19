@@ -2,10 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { 
   Users, ShieldCheck, TrendingUp, UserPlus, 
+  Settings as SettingsIcon, Trash2, Download,
   CheckCircle2, Lock, Unlock, Crown, Search,
   RefreshCw, Building2, CreditCard, AlertTriangle,
   ChevronDown, X, Star, Activity, BellRing, Send,
-  Eye
+  Eye, MessageCircle, Mail
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +28,7 @@ const PLAN_COLORS: Record<UserPlan, string> = {
   premium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
-type TabType = 'overview' | 'activities' | 'broadcast';
+type TabType = 'overview' | 'activities' | 'broadcast' | 'settings';
 
 export default function Admin() {
   const { user: currentUser } = useAuth();
@@ -44,6 +45,10 @@ export default function Admin() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   
+  // Pricing Settings
+  const [pricing, setPricing] = useState({ pro: 49.90, premium: 99.90 });
+  const [savingPricing, setSavingPricing] = useState(false);
+
   // Stats
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -56,6 +61,8 @@ export default function Admin() {
   // Modals & Extras
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userStats, setUserStats] = useState({ properties: 0, tenants: 0, loading: false });
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [loadingUserActivities, setLoadingUserActivities] = useState(false);
   
   // Broadcast
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -73,6 +80,15 @@ export default function Admin() {
       navigate('/dashboard');
     }
   }, [currentUser, navigate]);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('global_settings').select('*').eq('key', 'pricing').single();
+      if (data && data.value) {
+        setPricing({ pro: data.value.pro || 49.90, premium: data.value.premium || 99.90 });
+      }
+    } catch(e) {}
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (currentUser?.role !== 'admin') return;
@@ -95,12 +111,12 @@ export default function Admin() {
         createdAt: d.created_at,
       }));
 
-      // Calculate MRR
+      // Calculate MRR using dynamic pricing
       let mrr = 0;
       userList.forEach(u => {
         if (u.status === 'active') {
-          if (u.plan === 'professional') mrr += 49.90;
-          if (u.plan === 'premium') mrr += 99.90;
+          if (u.plan === 'professional') mrr += pricing.pro;
+          if (u.plan === 'premium') mrr += pricing.premium;
         }
       });
 
@@ -117,7 +133,7 @@ export default function Admin() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, pricing]);
 
   const fetchActivities = useCallback(async () => {
     setLoadingActivities(true);
@@ -138,9 +154,11 @@ export default function Admin() {
   }, []);
 
   useEffect(() => { 
-    if (activeTab === 'overview') fetchData();
+    fetchSettings().then(() => {
+      if (activeTab === 'overview') fetchData();
+    });
     if (activeTab === 'activities') fetchActivities();
-  }, [fetchData, fetchActivities, activeTab]);
+  }, [fetchData, fetchActivities, fetchSettings, activeTab]);
 
   // Realtime overview
   useEffect(() => {
@@ -173,36 +191,43 @@ export default function Admin() {
   const toggleStatus = async (uid: string, current: string) => {
     const next = current === 'active' ? 'blocked' : 'active';
     await supabase.from('profiles').update({ status: next }).eq('id', uid);
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status: next as any } : u));
     setActionUserId(null);
   };
 
   const changePlan = async (uid: string, plan: UserPlan) => {
     await supabase.from('profiles').update({ plan }).eq('id', uid);
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, plan } : u));
     setActionUserId(null);
   };
 
-  const toggleRole = async (uid: string, current: string) => {
-    if (current === 'admin') return; 
-    const next = current === 'owner' ? 'admin' : 'owner';
-    await supabase.from('profiles').update({ role: next }).eq('id', uid);
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: next as any } : u));
-    setActionUserId(null);
+  const deleteUser = async (uid: string) => {
+    if (!window.confirm("ATENÇÃO: Isso excluirá permanentemente o usuário, imóveis, inquilinos e contratos associados. Tem certeza?")) return;
+    try {
+      await supabase.rpc('delete_user_account', { p_user_id: uid });
+      setActionUserId(null);
+      fetchData();
+    } catch(e) {
+      console.error(e);
+      alert("Erro ao excluir usuário. Certifique-se de ter rodado o script SQL.");
+    }
   };
 
   const openUserDetails = async (user: User) => {
     setSelectedUser(user);
     setUserStats({ properties: 0, tenants: 0, loading: true });
+    setLoadingUserActivities(true);
     
     try {
-      const [{ count: pCount }, { count: tCount }] = await Promise.all([
+      const [{ count: pCount }, { count: tCount }, { data: logs }] = await Promise.all([
         supabase.from('properties').select('*', { count: 'exact', head: true }).eq('owner_id', user.uid),
-        supabase.from('tenants').select('*', { count: 'exact', head: true }).eq('owner_id', user.uid)
+        supabase.from('tenants').select('*', { count: 'exact', head: true }).eq('owner_id', user.uid),
+        supabase.from('activity_logs').select('*').eq('user_id', user.uid).order('created_at', { ascending: false }).limit(10)
       ]);
       setUserStats({ properties: pCount ?? 0, tenants: tCount ?? 0, loading: false });
+      setUserActivities(logs || []);
     } catch(e) {
       setUserStats(s => ({...s, loading: false}));
+    } finally {
+      setLoadingUserActivities(false);
     }
   };
 
@@ -221,11 +246,47 @@ export default function Admin() {
       setBroadcastMsg('');
       setTimeout(() => setBroadcastSuccess(false), 3000);
     } catch(err) {
-      console.error(err);
       alert("Erro ao enviar comunicado. Tente rodar o script SQL de permissões.");
     } finally {
       setBroadcastLoading(false);
     }
+  };
+
+  const saveSettings = async () => {
+    setSavingPricing(true);
+    try {
+      await supabase.from('global_settings').upsert({
+        key: 'pricing',
+        value: pricing
+      });
+      alert("Configurações salvas com sucesso!");
+      fetchData(); // Recalculate MRR
+    } catch(e) {
+      alert("Erro ao salvar. Rode o script SQL global_settings.");
+    } finally {
+      setSavingPricing(false);
+    }
+  };
+
+  const exportCSV = () => {
+    const headers = ["ID", "Nome", "Email", "Plano", "Status", "Data de Cadastro"];
+    const rows = filtered.map(u => [
+      u.uid, 
+      `"${u.name}"`, 
+      u.email, 
+      u.plan, 
+      u.status, 
+      u.createdAt ? format(new Date(u.createdAt), "dd/MM/yyyy") : ""
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `AlugaFacil_Usuarios_${format(new Date(), 'ddMMyyyy')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (currentUser?.role !== 'admin') return null;
@@ -245,23 +306,17 @@ export default function Admin() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
             <TrendingUp size={16} /> Visão Geral
           </button>
-          <button
-            onClick={() => setActiveTab('activities')}
-            className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'activities' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            <Activity size={16} /> Atividades
+          <button onClick={() => setActiveTab('activities')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'activities' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+            <Activity size={16} /> Atividades Globais
           </button>
-          <button
-            onClick={() => setActiveTab('broadcast')}
-            className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'broadcast' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('broadcast')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'broadcast' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
             <BellRing size={16} /> Comunicados
+          </button>
+          <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+            <SettingsIcon size={16} /> Configurações
           </button>
         </div>
       </div>
@@ -269,6 +324,13 @@ export default function Admin() {
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Dashboard Financeiro</h2>
+            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
+              <Download size={16} /> Exportar CSV
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Receita (MRR)</p>
@@ -359,6 +421,9 @@ export default function Admin() {
                               <button onClick={() => toggleStatus(u.uid, u.status)} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl">
                                 {u.status === 'active' ? 'Bloquear conta' : 'Desbloquear'}
                               </button>
+                              <button onClick={() => deleteUser(u.uid)} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl flex items-center gap-2">
+                                <Trash2 size={14}/> Excluir Conta
+                              </button>
                             </div>
                           )}
                         </div>
@@ -431,26 +496,65 @@ export default function Admin() {
         </motion.div>
       )}
 
+      {/* SETTINGS TAB */}
+      {activeTab === 'settings' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Configurações Globais</h3>
+            <p className="text-sm text-slate-500 mb-6">Ajuste os valores dos planos para refletir no cálculo de Receita (MRR).</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Professional (R$)</label>
+                <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({...pricing, pro: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Premium (R$)</label>
+                <input type="number" step="0.01" value={pricing.premium} onChange={e => setPricing({...pricing, premium: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+              </div>
+              
+              <button disabled={savingPricing} onClick={saveSettings} className="w-full mt-4 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-colors">
+                {savingPricing ? <RefreshCw className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                Salvar Configurações
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* RAIO-X MODAL */}
       <AnimatePresence>
         {selectedUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto py-10">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto">
               <div className="relative h-24 bg-gradient-to-r from-primary to-secondary">
                 <button onClick={() => setSelectedUser(null)} className="absolute top-4 right-4 w-8 h-8 bg-black/20 hover:bg-black/40 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-colors">
                   <X size={18} />
                 </button>
               </div>
               <div className="px-6 pb-6 relative">
-                <div className="w-20 h-20 -mt-10 rounded-2xl bg-white dark:bg-slate-900 p-1.5 shadow-lg mb-4">
-                  {selectedUser.photoURL ? (
-                    <img src={selectedUser.photoURL} alt={selectedUser.name} className="w-full h-full object-cover rounded-xl" />
-                  ) : (
-                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-2xl font-bold text-primary">
-                      {selectedUser.name?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                <div className="flex justify-between items-start">
+                  <div className="w-20 h-20 -mt-10 rounded-2xl bg-white dark:bg-slate-900 p-1.5 shadow-lg mb-4">
+                    {selectedUser.photoURL ? (
+                      <img src={selectedUser.photoURL} alt={selectedUser.name} className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-2xl font-bold text-primary">
+                        {selectedUser.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Botões de Contato Rápido */}
+                  <div className="mt-4 flex gap-2">
+                    <a href={`mailto:${selectedUser.email}`} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors">
+                      <Mail size={16} /> E-mail
+                    </a>
+                    <a href={`https://wa.me/?text=Olá ${selectedUser.name}, falo do suporte do AlugaFácil.`} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-lg text-sm font-medium transition-colors">
+                      <MessageCircle size={16} /> WhatsApp
+                    </a>
+                  </div>
                 </div>
+                
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedUser.name}</h2>
                 <p className="text-slate-500 mb-6">{selectedUser.email}</p>
 
@@ -473,7 +577,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-6">
+                <div className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-6 mb-6">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Cadastro:</span>
                     <span className="font-medium text-slate-900 dark:text-white">{selectedUser.createdAt ? format(new Date(selectedUser.createdAt), "dd/MM/yyyy") : 'N/A'}</span>
@@ -492,13 +596,36 @@ export default function Admin() {
                     <span className="text-slate-500">Plano Atual:</span>
                     <span className="font-bold text-primary">{PLAN_LABELS[selectedUser.plan as UserPlan]}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Status:</span>
-                    <span className={`font-bold ${selectedUser.status === 'active' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {selectedUser.status === 'active' ? 'Ativo' : 'Bloqueado'}
-                    </span>
+                </div>
+
+                {/* Histórico Individual de Atividades */}
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <Activity size={16} /> Histórico Recente do Usuário
+                  </h3>
+                  
+                  <div className="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {loadingUserActivities ? (
+                       <p className="text-sm text-slate-500 animate-pulse">Carregando histórico...</p>
+                    ) : userActivities.length === 0 ? (
+                       <p className="text-sm text-slate-500">Nenhuma atividade registrada ainda.</p>
+                    ) : userActivities.map(act => (
+                      <div key={act.id} className="flex gap-3 text-sm">
+                        <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0">
+                          {act.entity_type === 'property' ? <Building2 size={14} /> : act.entity_type === 'tenant' ? <Users size={14} /> : <UserPlus size={14} />}
+                        </div>
+                        <div>
+                          <p className="text-slate-900 dark:text-white">
+                            {act.action === 'create' ? 'Cadastrou um novo ' : act.action + ' '}
+                            <span className="font-semibold">{act.entity_type === 'property' ? 'imóvel' : act.entity_type === 'tenant' ? 'inquilino' : 'item'}</span>
+                          </p>
+                          <p className="text-xs text-slate-400">{format(new Date(act.created_at), "dd/MM 'às' HH:mm")}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+
               </div>
             </motion.div>
           </div>
