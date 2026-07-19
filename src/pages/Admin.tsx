@@ -85,7 +85,12 @@ export default function Admin() {
     try {
       const { data } = await supabase.from('global_settings').select('*').eq('key', 'pricing').single();
       if (data && data.value) {
-        setPricing({ pro: data.value.pro || 49.90, premium: data.value.premium || 99.90 });
+        setPricing(prev => {
+          const pro = data.value.pro || 49.90;
+          const premium = data.value.premium || 99.90;
+          if (prev.pro === pro && prev.premium === premium) return prev;
+          return { pro, premium };
+        });
       }
     } catch(e) {}
   }, []);
@@ -133,7 +138,7 @@ export default function Admin() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, pricing]);
+  }, [currentUser, pricing.pro, pricing.premium]);
 
   const fetchActivities = useCallback(async () => {
     setLoadingActivities(true);
