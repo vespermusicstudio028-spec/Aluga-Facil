@@ -109,8 +109,29 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     fetchChatUnread();
-    const interval = setInterval(fetchChatUnread, 15000);
-    return () => clearInterval(interval);
+    
+    // Polling de fallback
+    const interval = setInterval(fetchChatUnread, 30000);
+
+    // Real-time updates via Supabase
+    const channel = supabase
+      .channel('chat_unread_' + user.uid)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages'
+      }, () => fetchChatUnread())
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages'
+      }, () => fetchChatUnread())
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [user, location.pathname]);
 
   useEffect(() => {
@@ -182,7 +203,12 @@ export default function Layout({ children }: LayoutProps) {
               }`}
             >
               {item.icon}
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium flex-1">{item.label}</span>
+              {item.path === '/chat' && chatUnread > 0 && (
+                <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                  {chatUnread > 9 ? '9+' : chatUnread}
+                </span>
+              )}
             </Link>
           ))}
 
@@ -251,7 +277,12 @@ export default function Layout({ children }: LayoutProps) {
                     }`}
                   >
                     {item.icon}
-                    <span className="font-medium text-lg">{item.label}</span>
+                    <span className="font-medium text-lg flex-1">{item.label}</span>
+                    {item.path === '/chat' && chatUnread > 0 && (
+                      <span className="bg-red-500 text-white text-[12px] font-bold px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                        {chatUnread > 9 ? '9+' : chatUnread}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </nav>
