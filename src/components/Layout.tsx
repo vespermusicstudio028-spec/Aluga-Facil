@@ -21,14 +21,16 @@ import {
   Check,
   MessageSquare,
   Users as UsersIcon,
-  Crown
+  Crown,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { Notification } from '../types';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface LayoutProps {
@@ -46,8 +48,26 @@ export default function Layout({ children }: LayoutProps) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [nextExp, setNextExp] = useState<Date | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (user?.createdAt) {
+      const created = new Date(user.createdAt);
+      const now = new Date();
+      let exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
+      
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (exp.getTime() < startOfToday.getTime()) {
+        exp.setMonth(exp.getMonth() + 1);
+      }
+      
+      setNextExp(exp);
+      setDaysLeft(differenceInDays(exp, startOfToday));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -178,6 +198,20 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogout = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const getExpirationText = () => {
+    if (daysLeft === null) return '';
+    if (daysLeft === 0) return 'Vence Hoje!';
+    if (daysLeft === 1) return 'Vence Amanhã!';
+    return `Vence em ${String(daysLeft).padStart(2, '0')} dias`;
+  };
+  
+  const getAlertColor = () => {
+    if (daysLeft === null) return 'hidden';
+    if (daysLeft <= 3) return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 animate-pulse';
+    if (daysLeft <= 10) return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800 animate-pulse';
+    return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
   };
 
   return (
@@ -451,6 +485,22 @@ export default function Layout({ children }: LayoutProps) {
         {/* Scrollable Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
+            {/* ALERTA GLOBAL DE VENCIMENTO */}
+            {user?.role !== 'admin' && daysLeft !== null && (
+              <Link to="/plan" className={`block mb-8 p-4 rounded-2xl border flex items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
+                <div className="p-2 bg-white/50 dark:bg-black/20 rounded-xl shrink-0">
+                  {daysLeft <= 3 ? <AlertCircle size={24} /> : <Clock size={24} />}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-lg">{getExpirationText()}</h4>
+                  <p className="text-sm opacity-90 mt-0.5">
+                    Sua assinatura atual ({user?.plan}) expira em <strong>{nextExp ? format(nextExp, "dd 'de' MMMM", { locale: ptBR }) : ''}</strong>. 
+                    {daysLeft <= 10 ? ' Renove agora para não perder o acesso às funcionalidades!' : ' Fique tranquilo, você ainda tem tempo de sobra.'}
+                  </p>
+                </div>
+              </Link>
+            )}
+
             {children}
           </div>
         </main>
