@@ -16,7 +16,7 @@ export default function MyPlan() {
   const [nextExp, setNextExp] = useState<Date | null>(null);
 
   useEffect(() => {
-    if (user?.createdAt && user.plan !== 'basic') {
+    if (user?.createdAt) {
       const created = new Date(user.createdAt);
       const now = new Date();
       let exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
@@ -91,7 +91,7 @@ export default function MyPlan() {
         </div>
 
         {/* ALERTA DE VENCIMENTO */}
-        {user?.plan !== 'basic' && daysLeft !== null && (
+        {daysLeft !== null && (
           <div className={`mb-8 p-4 rounded-2xl border flex items-center gap-4 shadow-sm ${getAlertColor()}`}>
             <div className="p-2 bg-white/50 dark:bg-black/20 rounded-xl shrink-0">
               {daysLeft <= 3 ? <AlertCircle size={24} /> : <Clock size={24} />}
