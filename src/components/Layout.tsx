@@ -487,14 +487,15 @@ export default function Layout({ children }: LayoutProps) {
           <div className="max-w-7xl mx-auto">
             {/* ALERTA GLOBAL DE VENCIMENTO */}
             {user?.role !== 'admin' && daysLeft !== null && (
-              <Link to="/plan" className={`block mb-8 p-4 rounded-2xl border flex items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
-                <div className="p-2 bg-white/50 dark:bg-black/20 rounded-xl shrink-0">
-                  {daysLeft <= 3 ? <AlertCircle size={24} /> : <Clock size={24} />}
+              <Link to="/plan" className={`block mb-8 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
+                <div className="p-3 bg-white/50 dark:bg-black/20 rounded-xl shrink-0 flex items-center justify-center">
+                  {daysLeft <= 3 ? <AlertCircle size={28} /> : <Clock size={28} />}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-lg">{getExpirationText()}</h4>
-                  <p className="text-sm opacity-90 mt-0.5">
+                  <p className="text-sm opacity-90 mt-1 leading-relaxed">
                     Sua assinatura atual ({user?.plan}) expira em <strong>{nextExp ? format(nextExp, "dd 'de' MMMM", { locale: ptBR }) : ''}</strong>. 
+                    <br className="hidden sm:block" />
                     {daysLeft <= 10 ? ' Renove agora para não perder o acesso às funcionalidades!' : ' Fique tranquilo, você ainda tem tempo de sobra.'}
                   </p>
                 </div>
