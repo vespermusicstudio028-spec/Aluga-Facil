@@ -6,7 +6,7 @@ import {
   CheckCircle2, Lock, Unlock, Crown, Search,
   RefreshCw, Building2, CreditCard, AlertTriangle,
   ChevronDown, X, Star, Activity, BellRing, Send,
-  Eye, MessageCircle, Mail
+  Eye, MessageCircle, Mail, FileText, Clock
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,7 +28,7 @@ const PLAN_COLORS: Record<UserPlan, string> = {
   premium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
-type TabType = 'overview' | 'activities' | 'broadcast' | 'settings';
+type TabType = 'overview' | 'activities' | 'broadcast' | 'settings' | 'invoices';
 
 export default function Admin() {
   const { user: currentUser } = useAuth();
@@ -74,6 +74,11 @@ export default function Admin() {
   // Activities
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+
+  // Invoices tab
+  const [allInvoices, setAllInvoices] = useState<any[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [confirmingInvoice, setConfirmingInvoice] = useState<string | null>(null);
 
   // Guard: only admins
   useEffect(() => {
@@ -174,6 +179,50 @@ export default function Admin() {
     if (activeTab === 'overview') fetchData();
     if (activeTab === 'activities') fetchActivities();
   }, [fetchData, fetchActivities, activeTab]);
+
+  // Fetch invoices when tab is active
+  const fetchAllInvoices = useCallback(async () => {
+    setLoadingInvoices(true);
+    try {
+      const { data } = await supabase
+        .from('plan_invoices')
+        .select(`*, profiles:user_id(name, email)`)
+        .order('due_date', { ascending: false });
+      if (data) setAllInvoices(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'invoices') fetchAllInvoices();
+  }, [activeTab, fetchAllInvoices]);
+
+  const confirmInvoicePayment = async (inv: any) => {
+    if (!window.confirm(`Confirmar pagamento de R$ ${Number(inv.amount).toFixed(2)} para ${inv.profiles?.name}? Isso irá restaurar o acesso do usuário.`)) return;
+    setConfirmingInvoice(inv.id);
+    try {
+      const nextDate = new Date(inv.due_date);
+      nextDate.setMonth(nextDate.getMonth() + 1);
+
+      await supabase.from('plan_invoices')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', inv.id);
+
+      await supabase.from('profiles')
+        .update({ status: 'active', plan_expires_at: nextDate.toISOString() })
+        .eq('id', inv.user_id);
+
+      setAllInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'paid', paid_at: new Date().toISOString() } : i));
+      alert('Pagamento confirmado e acesso restaurado com sucesso!');
+    } catch (e) {
+      alert('Erro ao confirmar pagamento.');
+    } finally {
+      setConfirmingInvoice(null);
+    }
+  };
 
   // Realtime overview
   useEffect(() => {
@@ -329,6 +378,9 @@ export default function Admin() {
           </button>
           <button onClick={() => setActiveTab('broadcast')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'broadcast' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
             <BellRing size={16} /> Comunicados
+          </button>
+          <button onClick={() => setActiveTab('invoices')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'invoices' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+            <FileText size={16} /> Faturas
           </button>
           <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 px-5 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
             <SettingsIcon size={16} /> Configurações
@@ -544,6 +596,108 @@ export default function Admin() {
                 {savingPricing ? <RefreshCw className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
                 Salvar Configurações
               </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* INVOICES TAB */}
+      {activeTab === 'invoices' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Gerenciamento de Faturas</h2>
+              <p className="text-sm text-slate-500 mt-1">Visualize e confirme manualmente os pagamentos dos proprietários.</p>
+            </div>
+            <button onClick={fetchAllInvoices} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
+              <RefreshCw size={16} className={loadingInvoices ? 'animate-spin' : ''} /> Atualizar
+            </button>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total de Faturas</p>
+              <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400">{allInvoices.length}</h3>
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Pagas</p>
+              <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{allInvoices.filter(i => i.status === 'paid').length}</h3>
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Pendentes</p>
+              <h3 className="text-2xl font-bold text-orange-500 dark:text-orange-400">{allInvoices.filter(i => i.status === 'pending').length}</h3>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Proprietário</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Plano</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Valor</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vencimento</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ação Admin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {loadingInvoices ? (
+                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500 animate-pulse">Carregando faturas...</td></tr>
+                  ) : allInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center text-slate-500">
+                          <FileText size={32} className="mb-2 opacity-50" />
+                          <p>Nenhuma fatura gerada ainda.</p>
+                          <p className="text-sm opacity-70 mt-1">Faturas são criadas automaticamente 8 dias antes do vencimento.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    allInvoices.map(inv => (
+                      <tr key={inv.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${inv.status === 'pending' ? 'border-l-2 border-orange-400' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <p className="font-semibold text-slate-900 dark:text-white text-sm">{inv.profiles?.name || 'N/A'}</p>
+                          <p className="text-xs text-slate-400">{inv.profiles?.email}</p>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap capitalize text-sm text-slate-700 dark:text-slate-300">{inv.plan_id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-900 dark:text-white">
+                          R$ {Number(inv.amount).toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                          {format(new Date(inv.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {inv.status === 'paid' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              <CheckCircle2 size={14} /> Pago em {inv.paid_at ? format(new Date(inv.paid_at), "dd/MM") : '?'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">
+                              <Clock size={14} /> Pendente
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {inv.status === 'pending' && (
+                            <button
+                              onClick={() => confirmInvoicePayment(inv)}
+                              disabled={confirmingInvoice === inv.id}
+                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ml-auto"
+                            >
+                              {confirmingInvoice === inv.id ? <RefreshCw className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                              Confirmar Pagamento
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </motion.div>

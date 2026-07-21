@@ -82,7 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan: profileData.plan as UserPlan,
           status: profileData.status,
           createdAt: profileData.created_at,
-        });
+          plan_expires_at: profileData.plan_expires_at || undefined,
+        } as any);
       } else {
         // Fallback: perfil ainda não existe, cria objeto básico
         setUser({
