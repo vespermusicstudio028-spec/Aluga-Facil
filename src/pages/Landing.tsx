@@ -1,10 +1,24 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Building2, CheckCircle2, ShieldCheck, Users, BarChart3, Smartphone, ChevronRight } from 'lucide-react';
 import Logo from '../components/Logo';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Landing() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        navigate(user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
+      } else if (localStorage.getItem('tenantSession')) {
+        navigate('/tenant-dashboard', { replace: true });
+      }
+    }
+  }, [user, loading, navigate]);
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       {/* Header */}

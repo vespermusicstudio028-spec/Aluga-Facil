@@ -65,6 +65,14 @@ export default function Login() {
     }
   }, [searchParams, setValue]);
 
+  useEffect(() => {
+    if (user) {
+      navigate(user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
+    } else if (localStorage.getItem('tenantSession')) {
+      navigate('/tenant-dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
   const handleTenantLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
