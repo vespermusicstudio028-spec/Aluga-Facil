@@ -55,18 +55,27 @@ export default function Layout({ children }: LayoutProps) {
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.createdAt) {
-      const created = new Date(user.createdAt);
+    if (user) {
+      let exp;
       const now = new Date();
-      let exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
-      
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if (exp.getTime() < startOfToday.getTime()) {
-        exp.setMonth(exp.getMonth() + 1);
+
+      // Use database expiration date if available, otherwise calculate from createdAt
+      if ((user as any).plan_expires_at) {
+        exp = new Date((user as any).plan_expires_at);
+      } else if (user.createdAt) {
+        const created = new Date(user.createdAt);
+        exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
+        
+        if (exp.getTime() < startOfToday.getTime()) {
+          exp.setMonth(exp.getMonth() + 1);
+        }
       }
       
-      setNextExp(exp);
-      setDaysLeft(differenceInDays(exp, startOfToday));
+      if (exp) {
+        setNextExp(exp);
+        setDaysLeft(differenceInDays(exp, startOfToday));
+      }
     }
   }, [user]);
 
