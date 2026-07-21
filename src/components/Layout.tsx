@@ -23,7 +23,8 @@ import {
   Users as UsersIcon,
   Crown,
   AlertCircle,
-  Clock
+  Clock,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -174,7 +175,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const menuItems = [
+  let menuItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Building2 size={20} />, label: 'Imóveis', path: '/properties' },
     { icon: <Users size={20} />, label: 'Inquilinos', path: '/tenants' },
@@ -185,11 +186,21 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <BarChart3 size={20} />, label: 'Relatórios', path: '/reports' },
   ];
 
-  const secondaryItems = [
+  let secondaryItems = [
     { icon: <User size={20} />, label: 'Perfil', path: '/profile' },
     { icon: <Crown size={20} />, label: 'Meu Plano', path: '/plan' },
     { icon: <Settings size={20} />, label: 'Configurações', path: '/settings' },
   ];
+
+  // Lógica de Bloqueio de Inadimplência
+  const isSystemLocked = user?.role === 'owner' && user?.status === 'blocked';
+
+  if (isSystemLocked) {
+    menuItems = [];
+    secondaryItems = [
+      { icon: <Crown size={20} />, label: 'Meu Plano', path: '/plan' }
+    ];
+  }
 
   if (user?.role === 'admin') {
     menuItems.unshift({ icon: <ShieldCheck size={20} />, label: 'Admin', path: '/admin' } as any);
@@ -514,9 +525,9 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Scrollable Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto h-full">
             {/* ALERTA GLOBAL DE VENCIMENTO */}
-            {user?.role !== 'admin' && daysLeft !== null && (
+            {!isSystemLocked && user?.role !== 'admin' && daysLeft !== null && (
               <Link to="/plan" className={`block mb-8 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
                 <div className="p-3 bg-white/50 dark:bg-black/20 rounded-xl shrink-0 flex items-center justify-center">
                   {daysLeft <= 3 ? <AlertCircle size={28} /> : <Clock size={28} />}
@@ -532,13 +543,29 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             )}
 
-            {children}
+            {isSystemLocked && location.pathname !== '/plan' ? (
+              <div className="flex flex-col items-center justify-center h-[70vh] text-center p-6 animate-fade-in">
+                <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-red-500/10 animate-bounce">
+                  <Lock size={48} />
+                </div>
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Acesso Bloqueado</h2>
+                <p className="text-lg text-slate-500 dark:text-slate-400 max-w-lg mb-8 leading-relaxed">
+                  Seu período de uso do sistema está vencido. Para desbloquear suas ferramentas e continuar gerenciando seus imóveis e inquilinos, por favor realize a renovação do seu plano.
+                </p>
+                <Link to="/plan" className="bg-primary text-white font-bold py-4 px-10 rounded-2xl hover:bg-primary-hover transition-colors shadow-xl shadow-primary/30 text-lg flex items-center gap-3">
+                  <Crown size={24} />
+                  Ir para Meu Plano e Renovar
+                </Link>
+              </div>
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>
 
-      {/* Botão Flutuante de Inquilinos */}
-      {location.pathname !== '/tenants' && (
+      {/* Botão Flutuante de Inquilinos - Only if not locked */}
+      {!isSystemLocked && location.pathname !== '/tenants' && (
         <Link
           to="/tenants"
           className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
@@ -550,8 +577,8 @@ export default function Layout({ children }: LayoutProps) {
         </Link>
       )}
 
-      {/* Botão Flutuante de Chat para o Proprietário */}
-      {location.pathname !== '/chat' && (
+      {/* Botão Flutuante de Chat para o Proprietário - Only if not locked */}
+      {!isSystemLocked && location.pathname !== '/chat' && (
       <Link 
           to="/chat"
           className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
