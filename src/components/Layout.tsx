@@ -317,7 +317,37 @@ export default function Layout({ children }: LayoutProps) {
                     )}
                   </Link>
                 ))}
+
+                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
+                {secondaryItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
+                      location.pathname === item.path
+                        ? 'bg-primary text-white'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="font-medium text-lg flex-1">{item.label}</span>
+                  </Link>
+                ))}
               </nav>
+
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors font-medium text-lg"
+                >
+                  <LogOut size={24} />
+                  Sair da conta
+                </button>
+              </div>
             </motion.aside>
           </>
         )}
