@@ -234,6 +234,15 @@ export default function Layout({ children }: LayoutProps) {
     return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
   };
 
+  const [hideAlert, setHideAlert] = useState(() => sessionStorage.getItem('hideExpirationAlert') === 'true');
+
+  const handleCloseAlert = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    sessionStorage.setItem('hideExpirationAlert', 'true');
+    setHideAlert(true);
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Sidebar Desktop */}
@@ -536,8 +545,8 @@ export default function Layout({ children }: LayoutProps) {
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto h-full">
             {/* ALERTA GLOBAL DE VENCIMENTO */}
-            {!isSystemLocked && user?.role !== 'admin' && daysLeft !== null && (
-              <Link to="/plan" className={`block mb-8 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
+            {!isSystemLocked && user?.role !== 'admin' && daysLeft !== null && !hideAlert && (
+              <Link to="/plan" className={`relative block mb-8 p-4 pr-12 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
                 <div className="p-3 bg-white/50 dark:bg-black/20 rounded-xl shrink-0 flex items-center justify-center">
                   {daysLeft <= 3 ? <AlertCircle size={28} /> : <Clock size={28} />}
                 </div>
@@ -549,6 +558,13 @@ export default function Layout({ children }: LayoutProps) {
                     {daysLeft <= 10 ? ' Renove agora para não perder o acesso às funcionalidades!' : ' Fique tranquilo, você ainda tem tempo de sobra.'}
                   </p>
                 </div>
+                <button 
+                  onClick={handleCloseAlert}
+                  className="absolute top-4 right-4 p-1.5 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 transition-colors"
+                  title="Fechar aviso"
+                >
+                  <X size={16} />
+                </button>
               </Link>
             )}
 
