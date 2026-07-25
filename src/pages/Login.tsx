@@ -148,7 +148,9 @@ export default function Login() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <Logo className="h-14" variant="light" />
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-2 inline-block border border-white/20 shadow-lg">
+            <Logo className="h-14" variant="light" />
+          </div>
         </div>
 
         {/* Main copy */}
@@ -231,15 +233,13 @@ export default function Login() {
           <div className="grid grid-cols-2 gap-3 mb-8">
             <button
               onClick={() => { setLoginMode('owner'); setError(''); }}
-              className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
-                loginMode === 'owner'
-                  ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary/40'
-              }`}
+              className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 ${loginMode === 'owner'
+                ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary/40'
+                }`}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                loginMode === 'owner' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-              }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${loginMode === 'owner' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
                 <Building2 size={20} />
               </div>
               <p className={`font-bold text-sm ${loginMode === 'owner' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -253,15 +253,13 @@ export default function Login() {
 
             <button
               onClick={() => { setLoginMode('tenant'); setError(''); }}
-              className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
-                loginMode === 'tenant'
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-400/40'
-              }`}
+              className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 ${loginMode === 'tenant'
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-400/40'
+                }`}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                loginMode === 'tenant' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-              }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${loginMode === 'tenant' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
                 <Home size={20} />
               </div>
               <p className={`font-bold text-sm ${loginMode === 'tenant' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
