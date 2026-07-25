@@ -195,11 +195,7 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <BarChart3 size={20} />, label: 'Relatórios', path: '/reports' },
   ];
 
-  let secondaryItems = [
-    { icon: <User size={20} />, label: 'Perfil', path: '/profile' },
-    { icon: <Crown size={20} />, label: 'Meu Plano', path: '/plan' },
-    { icon: <Settings size={20} />, label: 'Configurações', path: '/settings' },
-  ];
+  let secondaryItems: any[] = [];
 
   // Lógica de Bloqueio — status blocked OU assinatura/trial expirado
   const isSystemLocked =
@@ -260,8 +256,8 @@ export default function Layout({ children }: LayoutProps) {
               key={item.path}
               to={item.path}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
             >
               {item.icon}
@@ -274,20 +270,24 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           ))}
 
-          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
-          {secondaryItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-            >
-              {item.icon}
-              <span className="font-medium">{item.label}</span>
-            </Link>
-          ))}
+          {secondaryItems.length > 0 && (
+            <>
+              <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
+              {secondaryItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                >
+                  {item.icon}
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -332,8 +332,8 @@ export default function Layout({ children }: LayoutProps) {
                     to={item.path}
                     onClick={() => setIsSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
-                        ? 'bg-primary text-white'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-primary text-white'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                   >
                     {item.icon}
@@ -346,21 +346,25 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 ))}
 
-                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
-                {secondaryItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
-                        ? 'bg-primary text-white'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
-                  >
-                    {item.icon}
-                    <span className="font-medium text-lg flex-1">{item.label}</span>
-                  </Link>
-                ))}
+                {secondaryItems.length > 0 && (
+                  <>
+                    <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
+                    {secondaryItems.map((item) => (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
+                          ? 'bg-primary text-white'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                      >
+                        {item.icon}
+                        <span className="font-medium text-lg flex-1">{item.label}</span>
+                      </Link>
+                    ))}
+                  </>
+                )}
               </nav>
 
               <div className="p-4 border-t border-slate-200 dark:border-slate-800">
