@@ -74,12 +74,17 @@ export default function Profile() {
               />
             )}
             {isEditing && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity">
-                <label className="cursor-pointer bg-white/20 hover:bg-white/30 p-3 rounded-full backdrop-blur-sm text-white transition-colors flex flex-col items-center">
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity relative group">
+                <div className="bg-white/20 group-hover:bg-white/30 p-3 rounded-full backdrop-blur-sm text-white transition-colors flex flex-col items-center">
                   <Camera size={24} />
                   <span className="text-xs font-bold mt-1">Alterar Capa</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
-                </label>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  onChange={handleCoverChange}
+                />
               </div>
             )}
           </div>
