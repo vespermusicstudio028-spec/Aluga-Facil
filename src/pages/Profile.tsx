@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { uploadBase64Image } from '../lib/storage';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -38,15 +38,25 @@ export default function Profile() {
         finalCoverUrl = await uploadBase64Image('property-photos', path, coverPhotoBase64);
       }
 
-      await supabase.from('profiles').update({
+      const { error: updateError } = await supabase.from('profiles').update({
         name: name.trim(),
         phone: phone.trim(),
-        ...(coverPhotoBase64 && { cover_url: finalCoverUrl })
+        ...(finalCoverUrl !== user.coverURL && { cover_url: finalCoverUrl })
       }).eq('id', user.uid);
 
-      setMessage('Perfil atualizado com sucesso! Recarregue a página para ver as alterações.');
+      if (updateError) throw updateError;
+
+      // Atualiza o estado local imediatamente (sem recarregar a página)
+      updateUser({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        coverURL: finalCoverUrl
+      });
+
+      setMessage('Perfil atualizado com sucesso!');
       setIsEditing(false);
-      setTimeout(() => setMessage(''), 5000);
+      setCoverPhotoBase64(null);
+      setTimeout(() => setMessage(''), 4000);
     } catch (error) {
       console.error('Error updating profile:', error);
       setMessage('Erro ao atualizar perfil.');

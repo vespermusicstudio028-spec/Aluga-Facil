@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, pass: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
   /** Dias restantes do trial/plano (null = sem contagem a exibir) */
   trialDaysLeft: number | null;
   /** true enquanto o trial/plano ainda não expirou */
@@ -213,6 +214,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
   };
 
+  const updateUser = (partial: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...partial } : null);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -221,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp,
       signInWithGoogle,
       signOut,
+      updateUser,
       trialDaysLeft,
       isSubscriptionActive,
     }}>
