@@ -32,7 +32,7 @@ export default function MyPlan() {
           exp.setMonth(exp.getMonth() + 1);
         }
       }
-      
+
       if (exp) {
         setNextExp(exp);
         setDaysLeft(differenceInDays(exp, startOfToday));
@@ -79,7 +79,7 @@ export default function MyPlan() {
           if (user.plan === 'basic') planCost = pricing.basic;
           if (user.plan === 'professional') planCost = pricing.pro;
           if (user.plan === 'premium') planCost = pricing.premium;
-          
+
           if (planCost > 0) {
             const { data } = await supabase.from('plan_invoices').insert({
               user_id: user.uid,
@@ -88,7 +88,7 @@ export default function MyPlan() {
               status: 'pending',
               due_date: nextExp.toISOString()
             }).select();
-            
+
             if (data && data.length > 0) {
               setInvoices([data[0], ...invoices]);
             }
@@ -114,17 +114,17 @@ export default function MyPlan() {
     try {
       // 1. Marca fatura como paga
       await supabase.from('plan_invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', inv.id);
-      
+
       // 2. Calcula nova expiração (+1 mês da data de vencimento original)
       const nextDate = new Date(inv.due_date);
       nextDate.setMonth(nextDate.getMonth() + 1);
-      
+
       // 3. Atualiza perfil
-      await supabase.from('profiles').update({ 
-        status: 'active', 
-        plan_expires_at: nextDate.toISOString() 
+      await supabase.from('profiles').update({
+        status: 'active',
+        plan_expires_at: nextDate.toISOString()
       }).eq('id', user?.uid);
-      
+
       alert("Pagamento confirmado com sucesso! O seu sistema foi restaurado.");
       window.location.reload();
     } catch (e) {
@@ -135,7 +135,10 @@ export default function MyPlan() {
     }
   };
 
-  const isCurrentPlan = (planId: UserPlan) => user?.plan === planId;
+  const isFreeTrial = invoices.length === 0 && daysLeft !== null && daysLeft >= 0;
+  // Só marca como atual se não for free trial OU se for free trial não marca nenhum dos cartões de baixo,
+  // pois o trial engloba as funcionalidades premium.
+  const isCurrentPlan = (planId: UserPlan) => !isFreeTrial && user?.plan === planId;
 
   return (
     <Layout>
@@ -157,82 +160,107 @@ export default function MyPlan() {
             <div className="h-64 w-1/3 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {/* Basic Plan */}
-            <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-sm flex flex-col ${isCurrentPlan('basic') ? 'border-primary' : 'border-slate-200 dark:border-slate-800'}`}>
-              {isCurrentPlan('basic') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">SEU PLANO ATUAL</span>}
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Basic</h3>
-              <div className="mb-6">
-                <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.basic.toFixed(2).replace('.', ',')}</span>
-                <span className="text-slate-500 text-sm">/mês</span>
+          <div className="flex flex-col gap-8 mb-12">
+            {isFreeTrial && (
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border border-emerald-400">
+                <div className="absolute -top-24 -right-24 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
+                <div className="relative z-10 max-w-2xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-white text-emerald-600 text-xs font-black uppercase px-3 py-1 rounded-full shadow-sm">
+                      TESTE GRÁTIS ATIVO
+                    </span>
+                    {daysLeft !== null && (
+                      <span className="bg-emerald-700/50 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-3xl font-bold mb-2">Você possui TODOS os benefícios liberados!</h3>
+                  <p className="text-emerald-50 font-medium">
+                    Aproveite o plano completo (Múltiplos Imóveis, Relatórios Detalhados e muito mais) durante o seu período de teste.
+                    Escolha um plano abaixo antes que o teste termine para continuar com os benefícios.
+                  </p>
+                </div>
               </div>
-              <ul className="space-y-3 mb-8 flex-1">
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-emerald-500" /> Até 2 Imóveis</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-emerald-500" /> Relatórios Básicos</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400 opacity-50"><Check size={18} className="text-slate-300" /> Sem Geração de Contratos</li>
-              </ul>
-              <button 
-                onClick={() => handleSubscribe('basic')}
-                className={`w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 ${isCurrentPlan('basic') ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}`}
-              >
-                {isCurrentPlan('basic') ? 'Mudar para Plano Basic' : 'Assinar Basic'} <ExternalLink size={16} />
-              </button>
-            </div>
+            )}
 
-            {/* Professional Plan */}
-            <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-xl flex flex-col transform md:-translate-y-4 ${isCurrentPlan('professional') ? 'border-blue-500' : 'border-blue-200 dark:border-blue-900/50'}`}>
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-t-3xl" />
-              {isCurrentPlan('professional') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-blue-500/20">SEU PLANO ATUAL</span>}
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Professional</h3>
-              <div className="mb-6">
-                <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.pro.toFixed(2).replace('.', ',')}</span>
-                <span className="text-slate-500 text-sm">/mês</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Basic Plan */}
+              <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-sm flex flex-col ${isCurrentPlan('basic') ? 'border-primary' : 'border-slate-200 dark:border-slate-800'}`}>
+                {isCurrentPlan('basic') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">SEU PLANO ATUAL</span>}
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Basic</h3>
+                <div className="mb-6">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.basic.toFixed(2).replace('.', ',')}</span>
+                  <span className="text-slate-500 text-sm">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-emerald-500" /> Até 2 Imóveis</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-emerald-500" /> Relatórios Básicos</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400 opacity-50"><Check size={18} className="text-slate-300" /> Sem Geração de Contratos</li>
+                </ul>
+                <button
+                  onClick={() => handleSubscribe('basic')}
+                  className={`w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 ${isCurrentPlan('basic') ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}`}
+                >
+                  {isCurrentPlan('basic') ? 'Mudar para Plano Basic' : 'Assinar Basic'} <ExternalLink size={16} />
+                </button>
               </div>
-              <ul className="space-y-3 mb-8 flex-1">
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Imóveis Ilimitados</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Geração de Contratos em PDF</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Relatórios Completos</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Suporte Prioritário</li>
-              </ul>
-              <button 
-                onClick={() => handleSubscribe('pro')}
-                className="w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30"
-              >
-                {isCurrentPlan('professional') ? 'Mudar para Plano Professional' : 'Assinar Professional'} <ExternalLink size={16} />
-              </button>
-            </div>
 
-            {/* Premium Plan */}
-            <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-sm flex flex-col ${isCurrentPlan('premium') ? 'border-amber-500' : 'border-slate-200 dark:border-slate-800'}`}>
-              {isCurrentPlan('premium') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">SEU PLANO ATUAL</span>}
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Premium</h3>
-              <div className="mb-6">
-                <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.premium.toFixed(2).replace('.', ',')}</span>
-                <span className="text-slate-500 text-sm">/mês</span>
+              {/* Professional Plan */}
+              <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-xl flex flex-col transform md:-translate-y-4 ${isCurrentPlan('professional') ? 'border-blue-500' : 'border-blue-200 dark:border-blue-900/50'}`}>
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-t-3xl" />
+                {isCurrentPlan('professional') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-blue-500/20">SEU PLANO ATUAL</span>}
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Professional</h3>
+                <div className="mb-6">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.pro.toFixed(2).replace('.', ',')}</span>
+                  <span className="text-slate-500 text-sm">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Imóveis Ilimitados</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Geração de Contratos em PDF</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Relatórios Completos</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-blue-500" /> Suporte Prioritário</li>
+                </ul>
+                <button
+                  onClick={() => handleSubscribe('pro')}
+                  className="w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                >
+                  {isCurrentPlan('professional') ? 'Mudar para Plano Professional' : 'Assinar Professional'} <ExternalLink size={16} />
+                </button>
               </div>
-              <ul className="space-y-3 mb-8 flex-1">
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Tudo do Professional</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Assinatura Digital de Contratos</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Notificações de Vencimento por WhatsApp</li>
-                <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Conciliação Bancária Automática</li>
-              </ul>
-              <button 
-                onClick={() => handleSubscribe('premium')}
-                className={`w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 ${isCurrentPlan('premium') ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90'}`}
-              >
-                {isCurrentPlan('premium') ? 'Mudar para Plano Premium' : 'Assinar Premium'} <ExternalLink size={16} />
-              </button>
+
+              {/* Premium Plan */}
+              <div className={`relative bg-white dark:bg-slate-900 rounded-3xl border-2 p-6 shadow-sm flex flex-col ${isCurrentPlan('premium') ? 'border-amber-500' : 'border-slate-200 dark:border-slate-800'}`}>
+                {isCurrentPlan('premium') && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">SEU PLANO ATUAL</span>}
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Premium</h3>
+                <div className="mb-6">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white">R$ {pricing.premium.toFixed(2).replace('.', ',')}</span>
+                  <span className="text-slate-500 text-sm">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Tudo do Professional</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Assinatura Digital de Contratos</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Notificações de Vencimento por WhatsApp</li>
+                  <li className="flex gap-2 text-sm text-slate-600 dark:text-slate-400"><Check size={18} className="text-amber-500" /> Conciliação Bancária Automática</li>
+                </ul>
+                <button
+                  onClick={() => handleSubscribe('premium')}
+                  className={`w-full py-3 rounded-xl font-bold transition-all flex justify-center items-center gap-2 ${isCurrentPlan('premium') ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90'}`}
+                >
+                  {isCurrentPlan('premium') ? 'Mudar para Plano Premium' : 'Assinar Premium'} <ExternalLink size={16} />
+                </button>
+              </div>
             </div>
           </div>
         )}
-        
+
         {/* Minhas Faturas */}
         <div className="mb-12">
           <div className="flex items-center gap-2 mb-6">
             <FileText className="text-primary" size={24} />
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Minhas Faturas</h2>
           </div>
-          
+
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -284,13 +312,13 @@ export default function MyPlan() {
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           {inv.status === 'pending' && (
                             <div className="flex justify-end gap-2">
-                              <button 
+                              <button
                                 onClick={() => handleSubscribe(inv.plan_id as any)}
                                 className="px-4 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity"
                               >
                                 Pagar
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleConfirmPayment(inv)}
                                 disabled={confirming === inv.id}
                                 className="px-4 py-2 bg-emerald-500 text-white text-sm font-bold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -314,7 +342,7 @@ export default function MyPlan() {
           <div>
             <h4 className="font-bold text-blue-900 dark:text-blue-300">Pagamento Seguro via Mercado Pago</h4>
             <p className="text-sm text-blue-700 dark:text-blue-400 mt-1 max-w-2xl">
-              Ao clicar em pagar, você será redirecionado para o ambiente seguro do Mercado Pago. 
+              Ao clicar em pagar, você será redirecionado para o ambiente seguro do Mercado Pago.
               Após realizar o pagamento, clique em <strong>"Já paguei"</strong> para que nosso sistema restaure o seu acesso instantaneamente.
             </p>
           </div>
