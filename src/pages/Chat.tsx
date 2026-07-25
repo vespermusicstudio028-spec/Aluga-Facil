@@ -12,6 +12,15 @@ import { useTheme } from '../contexts/ThemeContext';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+function getSupportedMimeType() {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  for (const t of types) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
+}
+
 // Helper: garante que o retorno da RPC (que pode ser string JSON ou objeto) seja um valor parseado
 function safeParseJson<T>(val: unknown): T | null {
   if (val === null || val === undefined) return null;
@@ -357,17 +366,18 @@ export default function Chat() {
   const handleMicPointerDown = async (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Remove o forçamento de mimeType (como audio/webm;codecs=opus) 
-      // pois isso causa voice distorcion (slow voice) em alguns browsers
-      const mr = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
+      const mime = getSupportedMimeType();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       audioChunksRef.current = [];
       mr.ondataavailable = ev => { if (ev.data.size > 0) audioChunksRef.current.push(ev.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         const chunks = audioChunksRef.current;
         console.log('[AUDIO] onstop disparado. Chunks:', chunks.length, 'Sizes:', chunks.map(c => c.size));
-        const blobType = mr.mimeType || 'audio/webm';
+        const blobType = mr.mimeType || mime || 'audio/webm';
         const blob = new Blob(chunks, { type: blobType });
         console.log('[AUDIO] Blob criado. Tamanho:', blob.size, 'Tipo:', blob.type);
         setRecording(false);
