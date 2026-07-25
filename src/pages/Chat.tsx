@@ -139,6 +139,7 @@ export default function Chat() {
   const [search, setSearch] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -146,6 +147,7 @@ export default function Chat() {
   const recordingRef = useRef(false); // evita closure stale
   const selectedTenantRef = useRef<Tenant | null>(null); // evita closure stale no onstop
   const userRef = useRef(user); // evita closure stale no onstop
+  const isFirstLoadRef = useRef(true);
 
   // Fetch tenants
   useEffect(() => {
@@ -192,13 +194,19 @@ export default function Chat() {
       p_tenant_id: tenantId
     });
     if (error) console.error('get_chat_messages error:', error);
-    
+
     // get_chat_messages retorna json (PostgreSQL) que pode vir como string no SDK
     const rawData = safeParseJson<ChatMessage[]>(data);
     const msgs: ChatMessage[] = Array.isArray(rawData) ? rawData : [];
-    
-    console.log('[LOAD] Mensagens do banco:', msgs.length, msgs.map((m: ChatMessage) => m.message_type));
-    setMessages(msgs);
+
+    setMessages(prev => {
+      // Se não mudar tamanho evitamos array novos para diminuir re-renders bruscos
+      // (a lógica smart de scroll vai tratar os updates porem assim poupamos a GUI)
+      if (prev.length === msgs.length && prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id) {
+        return prev;
+      }
+      return msgs;
+    });
 
     // Mark as read
     await supabase.rpc('mark_chat_read', {
@@ -219,6 +227,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (!selectedTenant || !user) return;
+    isFirstLoadRef.current = true;
     loadMessages(selectedTenant.id);
 
     // Sincronização Ativa (Polling) à prova de falhas (a cada 3s)
@@ -229,32 +238,48 @@ export default function Chat() {
     // Realtime subscription
     if (channelRef.current) supabase.removeChannel(channelRef.current);
     channelRef.current = supabase.channel(`chat_${user.uid}_${selectedTenant.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages',
-        filter: `tenant_id=eq.${selectedTenant.id}` },
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'chat_messages',
+        filter: `tenant_id=eq.${selectedTenant.id}`
+      },
         (payload) => {
           const msg = payload.new as ChatMessage;
           // Ignora as próprias mensagens no Realtime (o sendMessage já adiciona elas com o ID correto e não dá conflito)
           if (msg.sender_role === 'owner') return;
-          
+
           setMessages(prev => {
             if (prev.some(m => m.id === msg.id)) return prev;
             return [...prev, msg];
           });
-          
+
           if (msg.sender_role === 'tenant') {
             supabase.rpc('mark_chat_read', { p_owner_id: user.uid, p_tenant_id: selectedTenant.id, p_reader: 'owner' });
           }
         })
       .subscribe();
 
-    return () => { 
+    return () => {
       clearInterval(syncInterval);
-      if (channelRef.current) supabase.removeChannel(channelRef.current); 
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, [selectedTenant, user, loadMessages]);
 
+  // Smart Scroll
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (isFirstLoadRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      if (messages.length > 0) isFirstLoadRef.current = false;
+      return;
+    }
+
+    const diff = container.scrollHeight - container.scrollTop - container.clientHeight;
+    // Só rola pra mensagens novas automaticamente se já estiver lendo as últimas
+    if (diff <= 150) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   const uploadMedia = async (blob: Blob, ext: string): Promise<string | null> => {
@@ -279,13 +304,13 @@ export default function Chat() {
 
     try {
       const { data, error } = await supabase.rpc('send_chat_message', {
-        p_owner_id:       user.uid,
-        p_tenant_id:      selectedTenant.id,
-        p_sender_role:    'owner',
-        p_message_type:   type,
-        p_content:        content || null,
-        p_media_url:      mediaUrl || null,
-        p_read_by_owner:  true,
+        p_owner_id: user.uid,
+        p_tenant_id: selectedTenant.id,
+        p_sender_role: 'owner',
+        p_message_type: type,
+        p_content: content || null,
+        p_media_url: mediaUrl || null,
+        p_read_by_owner: true,
         p_read_by_tenant: false,
       });
 
@@ -368,13 +393,13 @@ export default function Chat() {
         }
         console.log('[AUDIO] Chamando send_chat_message...');
         const { data: msgData, error: msgError } = await supabase.rpc('send_chat_message', {
-          p_owner_id:       currentUser.uid,
-          p_tenant_id:      currentTenant.id,
-          p_sender_role:    'owner',
-          p_message_type:   'audio',
-          p_content:        null,
-          p_media_url:      url,
-          p_read_by_owner:  true,
+          p_owner_id: currentUser.uid,
+          p_tenant_id: currentTenant.id,
+          p_sender_role: 'owner',
+          p_message_type: 'audio',
+          p_content: null,
+          p_media_url: url,
+          p_read_by_owner: true,
           p_read_by_tenant: false,
         });
         if (msgError) {
@@ -441,27 +466,27 @@ export default function Chat() {
             ) : filteredTenants.map(t => {
               const titular = t.residents?.find(r => r.isTitular) || t.residents?.[0];
               return (
-              <button key={t.id} onClick={() => { setSelectedTenant(t); setShowSidebar(false); }}
-                className={`w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 ${selectedTenant?.id === t.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}>
-                {titular?.photo ? (
-                  <img src={titular.photo} className="w-11 h-11 rounded-full object-cover flex-shrink-0 border-2 border-slate-200 dark:border-slate-700" />
-                ) : (
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    {tenantName(t).charAt(0).toUpperCase()}
+                <button key={t.id} onClick={() => { setSelectedTenant(t); setShowSidebar(false); }}
+                  className={`w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 ${selectedTenant?.id === t.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}>
+                  {titular?.photo ? (
+                    <img src={titular.photo} className="w-11 h-11 rounded-full object-cover flex-shrink-0 border-2 border-slate-200 dark:border-slate-700" />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {tenantName(t).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{tenantName(t)}</p>
+                      {(unreadMap[t.id] || 0) > 0 && (
+                        <span className="ml-2 bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                          {unreadMap[t.id]}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">{t.propertyName}</p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{tenantName(t)}</p>
-                    {(unreadMap[t.id] || 0) > 0 && (
-                      <span className="ml-2 bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
-                        {unreadMap[t.id]}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 truncate">{t.propertyName}</p>
-                </div>
-              </button>
+                </button>
               );
             })}
           </div>
@@ -503,7 +528,7 @@ export default function Chat() {
               </div>
 
               {/* Mensagens */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50 dark:bg-slate-950">
+              <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50 dark:bg-slate-950">
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                     <MessageSquare size={32} />
@@ -590,9 +615,8 @@ export default function Chat() {
                       onPointerUp={handleMicPointerUp}
                       onPointerLeave={handleMicPointerUp}
                       onContextMenu={e => e.preventDefault()}
-                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 select-none touch-none ${
-                        recording ? 'bg-red-500 text-white scale-110 shadow-lg shadow-red-500/40' : 'bg-primary text-white hover:bg-primary/90'
-                      }`}>
+                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 select-none touch-none ${recording ? 'bg-red-500 text-white scale-110 shadow-lg shadow-red-500/40' : 'bg-primary text-white hover:bg-primary/90'
+                        }`}>
                       <Mic size={20} />
                     </button>
                   )}

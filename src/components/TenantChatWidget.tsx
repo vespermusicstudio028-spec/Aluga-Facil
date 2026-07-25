@@ -91,13 +91,15 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   const [unreadCount, setUnreadCount] = useState(0);
   const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
-  
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const channelRef = useRef<any>(null);
   const recordingRef = useRef(false);
+  const isFirstLoadRef = useRef(true);
 
   // Load and subscribe
   useEffect(() => {
@@ -109,12 +111,11 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
         p_owner_id: tenant.ownerId,
         p_tenant_id: tenant.id
       });
-      if (error) console.error('get_chat_messages error:', error);
-      
       const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
-      
+
       setMessages(prev => {
-        if (prev.length === msgs.length) return prev;
+        // Se as pontas e tamanhos são os mesmos, poupa re-render excessivo
+        if (prev.length === msgs.length && prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id) return prev;
         return msgs;
       });
 
@@ -122,6 +123,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       setUnreadCount(unread);
     };
 
+    isFirstLoadRef.current = true;
     loadMessages();
 
     // Sincronização Ativa (Polling)
@@ -132,16 +134,16 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     // Subscribe to new messages
     if (channelRef.current) supabase.removeChannel(channelRef.current);
     channelRef.current = supabase.channel(`tenant_chat_${tenant.id}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
         table: 'chat_messages',
-        filter: `tenant_id=eq.${tenant.id}` 
+        filter: `tenant_id=eq.${tenant.id}`
       }, (payload) => {
         const msg = payload.new as ChatMessage;
         // Inquilino ignora suas próprias mensagens via Realtime
         if (msg.sender_role === 'tenant') return;
-        
+
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -152,9 +154,9 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       })
       .subscribe();
 
-    return () => { 
+    return () => {
       clearInterval(syncInterval);
-      if (channelRef.current) supabase.removeChannel(channelRef.current); 
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, [tenant]);
 
@@ -170,7 +172,27 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   }, [isOpen, tenant]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Quando abre a janela reiniciamos o first load scroll
+    if (isOpen) {
+      isFirstLoadRef.current = true;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (isOpen && isFirstLoadRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      if (messages.length > 0) isFirstLoadRef.current = false;
+      return;
+    }
+
+    const diff = container.scrollHeight - container.scrollTop - container.clientHeight;
+    // Só scrolla automaticamente para baixo se a pessoa já estava perto do fim
+    if (diff <= 150) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isOpen]);
 
   const uploadMedia = async (blob: Blob, ext: string): Promise<string | null> => {
@@ -186,13 +208,13 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
 
     try {
       const { data, error } = await supabase.rpc('send_chat_message', {
-        p_owner_id:       tenant.ownerId,
-        p_tenant_id:      tenant.id,
-        p_sender_role:    'tenant',
-        p_message_type:   type,
-        p_content:        content || null,
-        p_media_url:      mediaUrl || null,
-        p_read_by_owner:  false,
+        p_owner_id: tenant.ownerId,
+        p_tenant_id: tenant.id,
+        p_sender_role: 'tenant',
+        p_message_type: type,
+        p_content: content || null,
+        p_media_url: mediaUrl || null,
+        p_read_by_owner: false,
         p_read_by_tenant: true,
       });
 
@@ -305,7 +327,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
                   <p className="text-white/70 text-xs">Proprietário</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsOpen(false)}
                 className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center text-white transition-colors"
               >
@@ -314,7 +336,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
             </div>
 
             {/* Mensagens */}
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3">
+            <div ref={containerRef} className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3">
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
                   <MessageSquare size={32} />
@@ -332,7 +354,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
                         <img src={msg.media_url} alt="anexo" className="max-w-full rounded-xl max-h-40 object-cover cursor-pointer" onClick={() => window.open(msg.media_url!, '_blank')} />
                       )}
                       {msg.message_type === 'audio' && msg.media_url && <AudioMessage url={msg.media_url} isSender={isSender} />}
-                      
+
                       <div className={`flex items-center gap-1 mt-1 justify-end ${isSender ? 'opacity-70' : 'opacity-50'}`}>
                         <span className="text-[10px]">{formatMsgDate(msg.created_at)}</span>
                         {isSender && (msg.read_by_owner ? <CheckCheck size={12} /> : <Check size={12} />)}
@@ -350,7 +372,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
                 {showEmoji && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                     className="absolute bottom-[70px] left-2 right-2 z-50 shadow-2xl rounded-2xl overflow-hidden">
-                    <EmojiPicker onEmojiClick={(d) => { setShowEmoji(false); sendMessage('emoji', d.emoji); }} 
+                    <EmojiPicker onEmojiClick={(d) => { setShowEmoji(false); sendMessage('emoji', d.emoji); }}
                       height={300} width="100%" />
                   </motion.div>
                 )}
@@ -382,9 +404,8 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
                     onPointerDown={handleMicPointerDown}
                     onPointerUp={handleMicPointerUp}
                     onPointerLeave={handleMicPointerUp}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all select-none touch-none ${
-                      recording ? 'bg-red-500 text-white scale-125 shadow-lg shadow-red-500/40' : 'bg-primary text-white'
-                    }`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all select-none touch-none ${recording ? 'bg-red-500 text-white scale-125 shadow-lg shadow-red-500/40' : 'bg-primary text-white'
+                      }`}
                   >
                     <Mic size={16} />
                   </button>
