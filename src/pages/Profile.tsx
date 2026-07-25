@@ -1,26 +1,49 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { User, Mail, Shield, Award, Edit2, Phone, Check, X } from 'lucide-react';
+import { User, Mail, Shield, Award, Edit2, Phone, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { motion } from 'motion/react';
+import { uploadBase64Image } from '../lib/storage';
 
 export default function Profile() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [coverPhotoBase64, setCoverPhotoBase64] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setCoverPhotoBase64(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     setIsLoading(true);
     try {
+      let finalCoverUrl = user.coverURL;
+
+      if (coverPhotoBase64) {
+        const path = `${user.uid}/cover_${Date.now()}.jpg`;
+        finalCoverUrl = await uploadBase64Image('property-photos', path, coverPhotoBase64);
+      }
+
       await supabase.from('profiles').update({
         name: name.trim(),
-        phone: phone.trim()
+        phone: phone.trim(),
+        ...(coverPhotoBase64 && { cover_url: finalCoverUrl })
       }).eq('id', user.uid);
+
       setMessage('Perfil atualizado com sucesso! Recarregue a página para ver as alterações.');
       setIsEditing(false);
       setTimeout(() => setMessage(''), 5000);
@@ -42,14 +65,31 @@ export default function Profile() {
       <div className="max-w-3xl space-y-6">
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm relative overflow-hidden">
           {/* Header background */}
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/10 dark:to-secondary/10"></div>
-          
+          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/10 dark:to-secondary/10 group">
+            {(coverPhotoBase64 || user?.coverURL) && (
+              <img
+                src={coverPhotoBase64 || user?.coverURL}
+                alt="Capa do Perfil"
+                className="w-full h-full object-cover"
+              />
+            )}
+            {isEditing && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <label className="cursor-pointer bg-white/20 hover:bg-white/30 p-3 rounded-full backdrop-blur-sm text-white transition-colors flex flex-col items-center">
+                  <Camera size={24} />
+                  <span className="text-xs font-bold mt-1">Alterar Capa</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+                </label>
+              </div>
+            )}
+          </div>
+
           <div className="relative pt-12 flex flex-col sm:flex-row items-center sm:items-end gap-6 mb-8">
             {user?.photoURL ? (
-              <img 
-                src={user.photoURL} 
-                alt={user.name} 
-                className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-lg shrink-0" 
+              <img
+                src={user.photoURL}
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-lg shrink-0"
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -62,7 +102,7 @@ export default function Profile() {
               <p className="text-slate-500 dark:text-slate-400">{user?.email}</p>
             </div>
             {!isEditing && (
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors flex items-center gap-2"
               >
@@ -152,6 +192,7 @@ export default function Profile() {
                   onClick={() => {
                     setIsEditing(false);
                     setName(user?.name || '');
+                    setCoverPhotoBase64(null);
                   }}
                   className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors"
                 >

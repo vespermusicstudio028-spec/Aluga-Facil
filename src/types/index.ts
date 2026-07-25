@@ -8,6 +8,7 @@ export interface User {
   name: string;
   phone?: string;
   photoURL?: string;
+  coverURL?: string;
   role: UserRole;
   plan: UserPlan;
   status: UserStatus;
@@ -86,7 +87,7 @@ export interface Contract {
   paymentMethod: 'PIX' | 'Transferência' | 'Boleto';
   pixKey?: string;
   status: ContractStatus;
-  
+
   // Signature data
   tenantSignature?: string;
   landlordSignature?: string;
@@ -94,13 +95,13 @@ export interface Contract {
   signatureTime?: string;
   signatureIP?: string;
   validationHash?: string;
-  
+
   witnesses?: { name: string; cpf: string }[];
-  
+
   clauses?: string;
   inspectionUrl?: string;
   inspectionAgreed?: boolean;
-  
+
   createdAt: string;
   updatedAt?: string;
 }
