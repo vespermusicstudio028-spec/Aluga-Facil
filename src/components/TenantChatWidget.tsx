@@ -6,15 +6,6 @@ import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-function getSupportedMimeType() {
-  if (typeof MediaRecorder === 'undefined') return '';
-  const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
-  for (const t of types) {
-    if (MediaRecorder.isTypeSupported(t)) return t;
-  }
-  return '';
-}
-
 interface ChatMessage {
   id: string;
   owner_id: string;
@@ -263,10 +254,9 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
       });
-      const mime = getSupportedMimeType();
-      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      const mr = new MediaRecorder(stream);
       audioChunksRef.current = [];
       mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
       mr.onstop = async () => {
@@ -274,7 +264,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
         // Captura o valor ANTES de qualquer limpeza de estado
         const wasRecording = recordingRef.current;
         if (!wasRecording) return;
-        const blobType = mr.mimeType || mime || 'audio/webm';
+        const blobType = mr.mimeType || 'audio/webm';
         const blob = new Blob(audioChunksRef.current, { type: blobType });
         if (blob.size < 1000) return; // ignora gravações muito curtas
         const ext = blobType.includes('mp4') ? 'mp4' : blobType.includes('ogg') ? 'ogg' : 'webm';
