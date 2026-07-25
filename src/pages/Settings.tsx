@@ -1,12 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  CreditCard, 
-  Moon, 
-  Smartphone,
+import {
+  User,
+  Bell,
+  CreditCard,
+  Moon,
+  Crown,
   ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,15 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function Settings() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  // Detecta se o usuário entrou via Google (não tem senha, logo esconde "Alterar Senha")
+  const isGoogleUser = !!(user?.photoURL?.includes('googleusercontent') || user?.photoURL?.includes('google'));
+
+  // Formata a data de expiração do plano
+  const planExpires = (user as any)?.plan_expires_at
+    ? new Date((user as any).plan_expires_at).toLocaleDateString('pt-BR')
+    : null;
 
   return (
     <Layout>
@@ -27,27 +36,41 @@ export default function Settings() {
         {/* Profile Section */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
           <div className="flex items-center gap-6 mb-8">
-            <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-3xl font-bold">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.name}
+                className="w-20 h-20 rounded-full object-cover border-2 border-primary/20 shadow"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-3xl font-bold">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+            )}
             <div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">{user?.name || 'Usuário'}</h3>
               <p className="text-slate-500">{user?.email}</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors group">
+          <div className={`grid grid-cols-1 ${!isGoogleUser ? 'sm:grid-cols-2' : ''} gap-4`}>
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
+            >
               <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
                 <User size={20} className="text-primary" /> Editar Perfil
               </div>
               <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors group">
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
-                <Shield size={20} className="text-primary" /> Alterar Senha
-              </div>
-              <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
-            </button>
+            {!isGoogleUser && (
+              <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group">
+                <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
+                  <Crown size={20} className="text-primary" /> Alterar Senha
+                </div>
+                <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -59,7 +82,7 @@ export default function Settings() {
               <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
                 <Moon size={20} className="text-primary" /> Modo Escuro
               </div>
-              <button 
+              <button
                 onClick={toggleTheme}
                 className={`w-14 h-8 rounded-full transition-all relative ${theme === 'dark' ? 'bg-primary' : 'bg-slate-300'}`}
               >
@@ -91,11 +114,16 @@ export default function Settings() {
                 <CreditCard size={24} />
               </div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white capitalize">Plano {user?.plan}</p>
-                <p className="text-sm text-slate-500 italic">Próxima cobrança em 15/08/2026</p>
+                <p className="font-bold text-slate-900 dark:text-white capitalize">Plano {user?.plan || 'Basic'}</p>
+                {planExpires && (
+                  <p className="text-sm text-slate-500 italic">Válido até {planExpires}</p>
+                )}
               </div>
             </div>
-            <button className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20">
+            <button
+              onClick={() => navigate('/plan')}
+              className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
+            >
               Gerenciar Plano
             </button>
           </div>
