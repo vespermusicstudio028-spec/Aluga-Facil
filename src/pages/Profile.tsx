@@ -74,7 +74,7 @@ export default function Profile() {
               />
             )}
             {isEditing && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity">
                 <label className="cursor-pointer bg-white/20 hover:bg-white/30 p-3 rounded-full backdrop-blur-sm text-white transition-colors flex flex-col items-center">
                   <Camera size={24} />
                   <span className="text-xs font-bold mt-1">Alterar Capa</span>
