@@ -9,16 +9,23 @@ interface AuthContextType {
   signUp: (email: string, pass: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Dias restantes do trial/plano (null = sem contagem a exibir) */
+  trialDaysLeft: number | null;
+  /** true enquanto o trial/plano ainda não expirou */
+  isSubscriptionActive: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const TRIAL_DAYS = 5;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -30,20 +37,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     getSession();
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         await fetchProfile(session.user);
       } else {
         setUser(null);
+        setTrialDaysLeft(null);
+        setIsSubscriptionActive(true);
         setLoading(false);
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { subscription.unsubscribe(); };
   }, []);
+
+  /** Calcula dias restantes e status ativo a partir da data de expiração */
+  const computeSubscriptionStatus = (expiresAt: string | null | undefined) => {
+    if (!expiresAt) {
+      setIsSubscriptionActive(true);
+      setTrialDaysLeft(null);
+      return;
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expDate = new Date(expiresAt);
+    const expDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+    const diff = Math.floor((expDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    setIsSubscriptionActive(diff >= 0);
+    // Exibe contagem se restar ≤ TRIAL_DAYS dias
+    setTrialDaysLeft(diff >= 0 && diff <= TRIAL_DAYS ? diff : null);
+  };
 
   const fetchProfile = async (authUser: any) => {
     try {
@@ -58,19 +83,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('*')
         .eq('id', uid)
         .single();
-        
+
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
       }
-      
+
       let profileData = data;
 
       if (profileData) {
-        // Se tem foto no Google mas não no banco, salva silenciosamente
+        // Salva foto do Google silenciosamente se necessário
         if (googlePhoto && !profileData.photo_url) {
           supabase.from('profiles').update({ photo_url: googlePhoto }).eq('id', uid).then();
           profileData.photo_url = googlePhoto;
         }
+
+        // ── TRIAL AUTOMÁTICO ──────────────────────────────────────────────
+        // Usuários sem plan_expires_at (novos ou antigos sem trial) recebem 5 dias
+        if (!profileData.plan_expires_at && profileData.role !== 'admin') {
+          const trialEnd = new Date();
+          trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+          const trialEndISO = trialEnd.toISOString();
+
+          await supabase.from('profiles').update({
+            plan_expires_at: trialEndISO,
+            status: 'active',
+          }).eq('id', uid);
+
+          profileData.plan_expires_at = trialEndISO;
+          profileData.status = 'active';
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        // Bloqueia automaticamente no banco se plano expirou
+        if (profileData.plan_expires_at && profileData.role !== 'admin') {
+          const expDate = new Date(profileData.plan_expires_at);
+          if (expDate < new Date() && profileData.status !== 'blocked') {
+            await supabase.from('profiles').update({ status: 'blocked' }).eq('id', uid);
+            profileData.status = 'blocked';
+          }
+        }
+
+        computeSubscriptionStatus(profileData.plan_expires_at);
 
         setUser({
           uid: profileData.id,
@@ -85,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan_expires_at: profileData.plan_expires_at || undefined,
         } as any);
       } else {
-        // Fallback: perfil ainda não existe, cria objeto básico
+        // Perfil ainda não existe (fallback durante criação)
         setUser({
           uid,
           email,
@@ -105,19 +158,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, pass: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pass,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
   };
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      }
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
     });
     if (error) throw error;
   };
@@ -126,11 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.auth.signUp({
       email,
       password: pass,
-      options: {
-        data: {
-          name: name,
-        }
-      }
+      options: { data: { name } }
     });
     if (error) throw error;
   };
@@ -140,7 +184,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      trialDaysLeft,
+      isSubscriptionActive,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Logo from './Logo';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
-  FileText, 
-  CreditCard, 
-  Receipt, 
-  BarChart3, 
-  User, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  FileText,
+  CreditCard,
+  Receipt,
+  BarChart3,
+  User,
+  Settings,
+  LogOut,
   ShieldCheck,
-  Menu, 
-  X, 
-  Sun, 
+  Menu,
+  X,
+  Sun,
   Moon,
   Bell,
   Check,
@@ -39,12 +39,12 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, trialDaysLeft, isSubscriptionActive } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -66,12 +66,12 @@ export default function Layout({ children }: LayoutProps) {
       } else if (user.createdAt) {
         const created = new Date(user.createdAt);
         exp = new Date(now.getFullYear(), now.getMonth(), created.getDate());
-        
+
         if (exp.getTime() < startOfToday.getTime()) {
           exp.setMonth(exp.getMonth() + 1);
         }
       }
-      
+
       if (exp) {
         setNextExp(exp);
         setDaysLeft(differenceInDays(exp, startOfToday));
@@ -130,7 +130,7 @@ export default function Layout({ children }: LayoutProps) {
 
         if (error) throw error;
         setChatUnread(data?.length ?? 0);
-      } catch {}
+      } catch { }
     };
 
     fetchChatUnread();
@@ -201,8 +201,10 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <Settings size={20} />, label: 'Configurações', path: '/settings' },
   ];
 
-  // Lógica de Bloqueio de Inadimplência
-  const isSystemLocked = user?.role === 'owner' && user?.status === 'blocked';
+  // Lógica de Bloqueio — status blocked OU assinatura/trial expirado
+  const isSystemLocked =
+    (user?.role === 'owner' && user?.status === 'blocked') ||
+    (user?.role === 'owner' && !isSubscriptionActive);
 
   if (isSystemLocked) {
     menuItems = [];
@@ -226,7 +228,7 @@ export default function Layout({ children }: LayoutProps) {
     if (daysLeft === 1) return 'Vence Amanhã!';
     return `Vence em ${String(daysLeft).padStart(2, '0')} dias`;
   };
-  
+
   const getAlertColor = () => {
     if (daysLeft === null) return 'hidden';
     if (daysLeft <= 3) return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 animate-pulse';
@@ -257,11 +259,10 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
-                location.pathname === item.path
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
                   ? 'bg-primary text-white shadow-lg shadow-primary/20'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+                }`}
             >
               {item.icon}
               <span className="font-medium flex-1">{item.label}</span>
@@ -278,11 +279,10 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
-                location.pathname === item.path
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
                   ? 'bg-primary text-white shadow-lg shadow-primary/20'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+                }`}
             >
               {item.icon}
               <span className="font-medium">{item.label}</span>
@@ -331,11 +331,10 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                      location.pathname === item.path
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
                         ? 'bg-primary text-white'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     <span className="font-medium text-lg flex-1">{item.label}</span>
@@ -353,11 +352,10 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                      location.pathname === item.path
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
                         ? 'bg-primary text-white'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     <span className="font-medium text-lg flex-1">{item.label}</span>
@@ -405,10 +403,10 @@ export default function Layout({ children }: LayoutProps) {
             >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            
+
             {/* Notifications Dropdown */}
             <div className="relative" ref={notifRef}>
-              <button 
+              <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
                 className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors relative"
               >
@@ -417,7 +415,7 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
                 )}
               </button>
-              
+
               <AnimatePresence>
                 {isNotifOpen && (
                   <motion.div
@@ -442,8 +440,8 @@ export default function Layout({ children }: LayoutProps) {
                         </div>
                       ) : (
                         notifications.map((notif) => (
-                          <div 
-                            key={notif.id} 
+                          <div
+                            key={notif.id}
                             onClick={() => {
                               if (!notif.read) handleMarkAsRead(notif.id);
                             }}
@@ -471,10 +469,10 @@ export default function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
-            
+
             {/* Profile Dropdown */}
             <div className="relative" ref={profileRef}>
-              <div 
+              <div
                 className="flex items-center gap-3 cursor-pointer select-none"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
@@ -505,16 +503,16 @@ export default function Layout({ children }: LayoutProps) {
                       <p className="text-xs text-slate-500 mt-1 truncate">{user?.email}</p>
                     </div>
                     <div className="p-2">
-                      <Link 
-                        to="/profile" 
+                      <Link
+                        to="/profile"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                       >
                         <User size={16} />
                         Meu Perfil
                       </Link>
-                      <Link 
-                        to="/settings" 
+                      <Link
+                        to="/settings"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                       >
@@ -523,7 +521,7 @@ export default function Layout({ children }: LayoutProps) {
                       </Link>
                     </div>
                     <div className="p-2 border-t border-slate-200 dark:border-slate-800">
-                      <button 
+                      <button
                         onClick={() => {
                           setIsProfileOpen(false);
                           handleLogout();
@@ -544,8 +542,34 @@ export default function Layout({ children }: LayoutProps) {
         {/* Scrollable Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto h-full">
-            {/* ALERTA GLOBAL DE VENCIMENTO */}
-            {!isSystemLocked && user?.role !== 'admin' && daysLeft !== null && !hideAlert && (
+            {/* BANNER DE TRIAL ATIVO */}
+            {!isSystemLocked && user?.role !== 'admin' && trialDaysLeft !== null && (
+              <div className="mb-6 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 text-lg font-black">
+                  {trialDaysLeft}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-emerald-800 dark:text-emerald-300">
+                    {trialDaysLeft === 0
+                      ? '⚠️ Seu teste gratuito expira HOJE!'
+                      : trialDaysLeft === 1
+                        ? '⚠️ Último dia do seu teste gratuito!'
+                        : `🎉 Teste grátis: ${trialDaysLeft} dias restantes`}
+                  </h4>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {trialDaysLeft <= 1
+                      ? 'Assine agora para continuar usando o AlugaFácil sem interrupções.'
+                      : 'Aproveite todas as funcionalidades. Assine antes de acabar o período!'}
+                  </p>
+                </div>
+                <Link to="/plan" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors whitespace-nowrap shrink-0">
+                  Ver Planos
+                </Link>
+              </div>
+            )}
+
+            {/* ALERTA GLOBAL DE VENCIMENTO (planos pagos) */}
+            {!isSystemLocked && user?.role !== 'admin' && trialDaysLeft === null && daysLeft !== null && !hideAlert && (
               <Link to="/plan" className={`relative block mb-8 p-4 pr-12 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm hover:opacity-90 transition-opacity ${getAlertColor()}`}>
                 <div className="p-3 bg-white/50 dark:bg-black/20 rounded-xl shrink-0 flex items-center justify-center">
                   {daysLeft <= 3 ? <AlertCircle size={28} /> : <Clock size={28} />}
@@ -553,12 +577,12 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="flex-1">
                   <h4 className="font-bold text-lg">{getExpirationText()}</h4>
                   <p className="text-sm opacity-90 mt-1 leading-relaxed">
-                    Sua assinatura atual ({user?.plan}) expira em <strong>{nextExp ? format(nextExp, "dd 'de' MMMM", { locale: ptBR }) : ''}</strong>. 
+                    Sua assinatura atual ({user?.plan}) expira em <strong>{nextExp ? format(nextExp, "dd 'de' MMMM", { locale: ptBR }) : ''}</strong>.
                     <br className="hidden sm:block" />
                     {daysLeft <= 10 ? ' Renove agora para não perder o acesso às funcionalidades!' : ' Fique tranquilo, você ainda tem tempo de sobra.'}
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={handleCloseAlert}
                   className="absolute top-4 right-4 p-1.5 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 transition-colors"
                   title="Fechar aviso"
@@ -569,18 +593,24 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {isSystemLocked && location.pathname !== '/plan' ? (
-              <div className="flex flex-col items-center justify-center h-[70vh] text-center p-6 animate-fade-in">
-                <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-red-500/10 animate-bounce">
+              <div className="flex flex-col items-center justify-center h-[70vh] text-center p-6">
+                <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-red-500/10">
                   <Lock size={48} />
                 </div>
+                <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">
+                  {user?.status === 'blocked' ? 'Plano Expirado' : 'Período de Teste Encerrado'}
+                </span>
                 <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Acesso Bloqueado</h2>
                 <p className="text-lg text-slate-500 dark:text-slate-400 max-w-lg mb-8 leading-relaxed">
-                  Seu período de uso do sistema está vencido. Para desbloquear suas ferramentas e continuar gerenciando seus imóveis e inquilinos, por favor realize a renovação do seu plano.
+                  {user?.status === 'blocked'
+                    ? 'Seu período de uso expirou. Renove seu plano para voltar a ter acesso completo ao sistema.'
+                    : 'Seu teste gratuito de 5 dias chegou ao fim. Assine um plano para continuar gerenciando seus imóveis e inquilinos.'}
                 </p>
-                <Link to="/plan" className="bg-primary text-white font-bold py-4 px-10 rounded-2xl hover:bg-primary-hover transition-colors shadow-xl shadow-primary/30 text-lg flex items-center gap-3">
+                <Link to="/plan" className="bg-primary text-white font-bold py-4 px-10 rounded-2xl hover:opacity-90 transition-opacity shadow-xl shadow-primary/30 text-lg flex items-center gap-3">
                   <Crown size={24} />
-                  Ir para Meu Plano e Renovar
+                  {user?.status === 'blocked' ? 'Renovar Meu Plano' : 'Assinar Agora'}
                 </Link>
+                <p className="text-sm text-slate-400 mt-6">Só a página <strong>Meu Plano</strong> está disponível até você assinar.</p>
               </div>
             ) : (
               children
@@ -604,7 +634,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Botão Flutuante de Chat para o Proprietário - Only if not locked */}
       {!isSystemLocked && location.pathname !== '/chat' && (
-      <Link 
+        <Link
           to="/chat"
           className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
         >
