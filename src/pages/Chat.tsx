@@ -354,18 +354,13 @@ export default function Chat() {
     await sendMessage('emoji', emojiData.emoji);
   };
 
-  // Segurar para gravar
   const handleMicPointerDown = async (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Tenta WebM, senão cai para o formato padrão do browser
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : '';
-      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      // Remove o forçamento de mimeType (como audio/webm;codecs=opus) 
+      // pois isso causa voice distorcion (slow voice) em alguns browsers
+      const mr = new MediaRecorder(stream);
       audioChunksRef.current = [];
       mr.ondataavailable = ev => { if (ev.data.size > 0) audioChunksRef.current.push(ev.data); };
       mr.onstop = async () => {

@@ -262,9 +262,11 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
         // Captura o valor ANTES de qualquer limpeza de estado
         const wasRecording = recordingRef.current;
         if (!wasRecording) return;
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const blobType = mr.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: blobType });
         if (blob.size < 1000) return; // ignora gravações muito curtas
-        const url = await uploadMedia(blob, 'webm');
+        const ext = blobType.includes('mp4') ? 'mp4' : blobType.includes('ogg') ? 'ogg' : 'webm';
+        const url = await uploadMedia(blob, ext);
         if (url) await sendMessage('audio', undefined, url);
       };
       mr.start();
