@@ -138,7 +138,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan_expires_at: profileData.plan_expires_at || undefined,
         } as any);
       } else {
-        // Perfil ainda não existe (fallback durante criação)
+        // Perfil ainda não existe no DB (falha ou falta de trigger)
+        // ── CRIA O PERFIL AUTOMATICAMENTE COM TRIAL ───────────────────
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+        const trialEndISO = trialEnd.toISOString();
+        const createdAt = new Date().toISOString();
+
+        const newProfile = {
+          id: uid,
+          email,
+          name: googleName,
+          photo_url: googlePhoto || null,
+          role: 'owner',
+          plan: 'basic',
+          status: 'active',
+          plan_expires_at: trialEndISO,
+          created_at: createdAt
+        };
+
+        const { error: insertError } = await supabase.from('profiles').insert([newProfile]);
+
+        if (insertError) {
+          console.error('Failed to create profile on fallback:', insertError);
+        }
+
+        computeSubscriptionStatus(trialEndISO);
+
         setUser({
           uid,
           email,
@@ -147,8 +173,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: 'owner',
           plan: 'basic',
           status: 'active',
-          createdAt: new Date().toISOString(),
-        });
+          createdAt: createdAt,
+          plan_expires_at: trialEndISO,
+        } as any);
       }
     } catch (err) {
       console.error(err);
