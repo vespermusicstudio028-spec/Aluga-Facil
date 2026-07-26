@@ -289,6 +289,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   };
 
   const handleMicPointerDown = async (e: React.PointerEvent) => {
+    if (recordingRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -317,6 +318,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       mediaRecorderRef.current = mr;
       recordingRef.current = true;
       setRecording(true);
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
       setRecordingTime(0);
       recordingIntervalRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
     } catch { alert('Permita acesso ao microfone.'); }

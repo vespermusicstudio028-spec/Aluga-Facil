@@ -399,6 +399,7 @@ export default function Chat() {
   };
 
   const handleMicPointerDown = async (e: React.PointerEvent) => {
+    if (recordingRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -467,6 +468,7 @@ export default function Chat() {
       recordingRef.current = true;
       setRecording(true);
       // Inicia cronômetro
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
       setRecordingTime(0);
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(t => t + 1);
