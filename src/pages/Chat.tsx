@@ -76,8 +76,10 @@ function generateBars(seed: string, count = 30): number[] {
 function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const bars = generateBars(url);
+  const bars = generateBars(url, 40);
   const BAR_COUNT = bars.length;
   const activeBars = Math.round((progress / 100) * BAR_COUNT);
 
@@ -88,38 +90,62 @@ function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
     setPlaying(!playing);
   };
 
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  const handleBarClick = (i: number) => {
+    if (!audioRef.current || !duration) return;
+    audioRef.current.currentTime = (i / BAR_COUNT) * duration;
+  };
+
   return (
-    <div className="flex items-center gap-2 min-w-[200px]">
-      <audio ref={audioRef} src={url}
-        onEnded={() => { setPlaying(false); setProgress(0); }}
+    <div className="flex items-center gap-2.5 min-w-[220px] max-w-[260px]">
+      <audio ref={audioRef} src={url} preload="metadata"
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onEnded={() => { setPlaying(false); setProgress(0); setCurrentTime(0); }}
         onTimeUpdate={() => {
-          if (audioRef.current?.duration)
-            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+          if (!audioRef.current?.duration) return;
+          const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+          setProgress(pct);
+          setCurrentTime(audioRef.current.currentTime);
         }} />
+
+      {/* Botão Play */}
       <button onClick={toggle}
-        className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center flex-shrink-0 transition-colors">
-        {playing ? <Pause size={14} /> : <Play size={14} />}
+        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-md ${isOwner
+          ? 'bg-white/20 hover:bg-white/30 text-white'
+          : 'bg-primary/10 hover:bg-primary/20 text-primary'
+          }`}>
+        {playing
+          ? <Pause size={16} className={isOwner ? 'text-white' : 'text-primary'} />
+          : <Play size={16} className={`ml-0.5 ${isOwner ? 'text-white' : 'text-primary'}`} />}
       </button>
-      {/* Waveform */}
-      <div className="flex items-center gap-[2px] flex-1 h-8">
-        {bars.map((h, i) => (
-          <div key={i}
-            className="rounded-full flex-shrink-0 transition-colors"
-            style={{
-              width: 3,
-              height: `${Math.max(4, (h / 100) * 32)}px`,
-              background: i < activeBars
-                ? (isOwner ? 'rgba(255,255,255,1)' : '#2563eb')
-                : (isOwner ? 'rgba(255,255,255,0.35)' : 'rgba(37,99,235,0.3)')
-            }}
-          />
-        ))}
+
+      {/* Waveform + Timer */}
+      <div className="flex-1 flex flex-col gap-1">
+        <div className="flex items-center gap-[2px] h-8 cursor-pointer"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            const bar = Math.floor(pct * BAR_COUNT);
+            handleBarClick(bar);
+          }}>
+          {bars.map((h, i) => (
+            <div key={i}
+              className="rounded-full flex-shrink-0 transition-all duration-100"
+              style={{
+                width: 2.5,
+                height: `${Math.max(3, (h / 100) * 30)}px`,
+                background: i < activeBars
+                  ? (isOwner ? 'rgba(255,255,255,0.95)' : 'var(--color-primary, #2563eb)')
+                  : (isOwner ? 'rgba(255,255,255,0.3)' : 'rgba(37,99,235,0.25)')
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-[10px] tabular-nums font-medium" style={{ opacity: 0.65 }}>
+          {playing ? formatTime(currentTime) : formatTime(duration)}
+        </span>
       </div>
-      <span className="text-[10px] opacity-60 flex-shrink-0 tabular-nums">
-        {audioRef.current?.duration
-          ? `${Math.floor(audioRef.current.duration / 60)}:${String(Math.floor(audioRef.current.duration % 60)).padStart(2, '0')}`
-          : '0:00'}
-      </span>
     </div>
   );
 }
@@ -135,6 +161,8 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0); // segundos do cronômetro
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
@@ -413,10 +441,21 @@ export default function Chat() {
       mediaRecorderRef.current = mr;
       recordingRef.current = true;
       setRecording(true);
+      // Inicia cronômetro
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(t => t + 1);
+      }, 1000);
     } catch { alert('Permita acesso ao microfone para gravar áudio.'); }
   };
 
   const handleMicPointerUp = () => {
+    // Para o cronômetro
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    setRecordingTime(0);
     // Para a gravação; o processamento acontece no onstop
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
@@ -575,26 +614,38 @@ export default function Chat() {
 
                 <div className="flex items-end gap-2">
                   {/* Emoji */}
-                  <button onClick={() => setShowEmoji(v => !v)}
+                  {/* Emoji */}
+                  {!recording && <button onClick={() => setShowEmoji(v => !v)}
                     className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${showEmoji ? 'bg-primary text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                     {showEmoji ? <X size={20} /> : <Smile size={20} />}
-                  </button>
+                  </button>}
 
                   {/* Imagem */}
-                  <button onClick={() => fileRef.current?.click()}
+                  {!recording && <button onClick={() => fileRef.current?.click()}
                     className="p-2.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
                     <Image size={20} />
-                  </button>
+                  </button>}
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSendImage} />
 
-                  {/* Texto */}
-                  <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2.5">
-                    <textarea value={text} onChange={e => setText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-                      placeholder="Digite uma mensagem..."
-                      rows={1} style={{ resize: 'none' }}
-                      className="w-full bg-transparent outline-none text-slate-900 dark:text-white text-sm placeholder-slate-400 max-h-32 overflow-y-auto" />
-                  </div>
+                  {/* Texto ou indicador de gravação */}
+                  {recording ? (
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                      className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-2xl px-4 py-2.5 flex items-center gap-3 border border-red-200 dark:border-red-800">
+                      <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+                      <span className="text-red-600 dark:text-red-400 font-semibold text-sm tabular-nums">
+                        {`${Math.floor(recordingTime / 60)}:${String(recordingTime % 60).padStart(2, '0')}`}
+                      </span>
+                      <span className="text-red-400 dark:text-red-500 text-xs">Gravando... Solte para enviar</span>
+                    </motion.div>
+                  ) : (
+                    <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2.5">
+                      <textarea value={text} onChange={e => setText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
+                        placeholder="Digite uma mensagem..."
+                        rows={1} style={{ resize: 'none' }}
+                        className="w-full bg-transparent outline-none text-slate-900 dark:text-white text-sm placeholder-slate-400 max-h-32 overflow-y-auto" />
+                    </div>
+                  )}
 
                   {/* Enviar / Gravar */}
                   {text.trim() ? (
@@ -614,13 +665,6 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
-                {recording && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-xs text-red-500 font-bold text-center mt-2 flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse inline-block" />
-                    Gravando... Solte para enviar
-                  </motion.p>
-                )}
               </div>
             </>
           )}
