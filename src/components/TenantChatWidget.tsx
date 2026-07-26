@@ -38,9 +38,12 @@ function generateBars(seed: string, count = 30): number[] {
 function AudioMessage({ url, isSender }: { url: string; isSender: boolean }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const bars = generateBars(url, 24); // menos barras pro modal
-  const activeBars = Math.round((progress / 100) * bars.length);
+  const bars = generateBars(url, 28);
+  const BAR_COUNT = bars.length;
+  const activeBars = Math.round((progress / 100) * BAR_COUNT);
 
   const toggle = () => {
     if (!audioRef.current) return;
@@ -49,37 +52,70 @@ function AudioMessage({ url, isSender }: { url: string; isSender: boolean }) {
     setPlaying(!playing);
   };
 
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  const handleBarClick = (i: number) => {
+    if (!audioRef.current || !duration) return;
+    audioRef.current.currentTime = (i / BAR_COUNT) * duration;
+  };
+
   return (
-    <div className="flex items-center gap-1.5 min-w-[150px]">
-      <audio ref={audioRef} src={url}
-        onEnded={() => { setPlaying(false); setProgress(0); }}
+    <div className="flex items-center gap-2.5 min-w-[190px] max-w-[210px]">
+      <audio ref={audioRef} src={url} preload="metadata"
+        onLoadedMetadata={() => {
+          if (audioRef.current) {
+            if (audioRef.current.duration === Infinity) {
+              audioRef.current.currentTime = 1e10;
+              audioRef.current.addEventListener('timeupdate', function fixDuration() {
+                if (audioRef.current && audioRef.current.duration !== Infinity) {
+                  audioRef.current.currentTime = 0;
+                  setDuration(audioRef.current.duration);
+                  audioRef.current.removeEventListener('timeupdate', fixDuration);
+                }
+              });
+            } else { setDuration(audioRef.current.duration); }
+          }
+        }}
+        onEnded={() => { setPlaying(false); setProgress(0); setCurrentTime(0); }}
         onTimeUpdate={() => {
-          if (audioRef.current?.duration)
-            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+          if (!audioRef.current || audioRef.current.duration === Infinity) return;
+          const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+          setProgress(pct);
+          setCurrentTime(audioRef.current.currentTime);
         }} />
+
       <button onClick={toggle}
-        className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center flex-shrink-0 transition-colors">
-        {playing ? <Pause size={12} /> : <Play size={12} />}
+        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-md ${isSender ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-primary/10 hover:bg-primary/20 text-primary'
+          }`}>
+        {playing
+          ? <Pause size={12} className={isSender ? 'text-white' : 'text-primary'} />
+          : <Play size={12} className={`ml-0.5 ${isSender ? 'text-white' : 'text-primary'}`} />}
       </button>
-      <div className="flex items-center gap-[2px] flex-1 h-6">
-        {bars.map((h, i) => (
-          <div key={i}
-            className="rounded-full flex-shrink-0 transition-colors"
-            style={{
-              width: 2,
-              height: `${Math.max(4, (h / 100) * 24)}px`,
-              background: i < activeBars
-                ? (isSender ? 'rgba(255,255,255,1)' : '#2563eb')
-                : (isSender ? 'rgba(255,255,255,0.35)' : 'rgba(37,99,235,0.3)')
-            }}
-          />
-        ))}
+
+      <div className="flex-1 flex flex-col gap-1 w-full">
+        <div className="flex items-center gap-[2px] h-6 cursor-pointer"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            handleBarClick(Math.floor(pct * BAR_COUNT));
+          }}>
+          {bars.map((h, i) => (
+            <div key={i}
+              className="rounded-full flex-shrink-0 transition-all duration-100"
+              style={{
+                width: 2,
+                height: `${Math.max(3, (h / 100) * 24)}px`,
+                background: i < activeBars
+                  ? (isSender ? 'rgba(255,255,255,0.95)' : 'var(--color-primary, #2563eb)')
+                  : (isSender ? 'rgba(255,255,255,0.3)' : 'rgba(37,99,235,0.25)')
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-[9px] tabular-nums font-medium" style={{ opacity: 0.65 }}>
+          {playing ? formatTime(currentTime) : formatTime(duration)}
+        </span>
       </div>
-      <span className="text-[9px] opacity-60 flex-shrink-0 tabular-nums">
-        {audioRef.current?.duration
-          ? `${Math.floor(audioRef.current.duration / 60)}:${String(Math.floor(audioRef.current.duration % 60)).padStart(2, '0')}`
-          : '0:00'}
-      </span>
     </div>
   );
 }
@@ -91,6 +127,8 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
   const [unreadCount, setUnreadCount] = useState(0);
   const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -259,24 +297,37 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
       mr.ondataavailable = ev => audioChunksRef.current.push(ev.data);
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        // Captura o valor ANTES de qualquer limpeza de estado
         const wasRecording = recordingRef.current;
         if (!wasRecording) return;
         const blobType = mr.mimeType || 'audio/webm';
         const blob = new Blob(audioChunksRef.current, { type: blobType });
         if (blob.size < 1000) return; // ignora gravações muito curtas
-        const ext = blobType.includes('mp4') ? 'mp4' : blobType.includes('ogg') ? 'ogg' : 'webm';
+
+        // Mesma lógica de fallback pra iOS do admin:
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        let ext = 'webm';
+        if (blobType.includes('mp4') || isIOS) ext = 'mp4';
+        else if (blobType.includes('ogg')) ext = 'ogg';
+
         const url = await uploadMedia(blob, ext);
         if (url) await sendMessage('audio', undefined, url);
       };
+      // SEM mr.start(100)
       mr.start();
       mediaRecorderRef.current = mr;
       recordingRef.current = true;
       setRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
     } catch { alert('Permita acesso ao microfone.'); }
   };
 
   const handleMicPointerUp = () => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    setRecordingTime(0);
     // Para ANTES de limpar o ref para que o onstop ainda veja wasRecording = true
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
@@ -381,21 +432,32 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
               </AnimatePresence>
 
               <div className="flex items-end gap-2">
-                <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'bg-primary text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
+                {!recording && <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'bg-primary text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
                   {showEmoji ? <X size={20} /> : <Smile size={20} />}
-                </button>
+                </button>}
 
-                <button onClick={() => fileRef.current?.click()} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors">
+                {!recording && <button onClick={() => fileRef.current?.click()} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors">
                   <Image size={20} />
-                </button>
+                </button>}
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSendImage} />
 
-                <div className="flex-1 bg-slate-100 rounded-xl px-3 py-2">
-                  <textarea value={text} onChange={e => setText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-                    placeholder="Sua mensagem..." rows={1} style={{ resize: 'none' }}
-                    className="w-full bg-transparent outline-none text-slate-900 text-sm max-h-24 overflow-y-auto" />
-                </div>
+                {recording ? (
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                    className="flex-1 bg-red-50 rounded-xl px-3 py-2 flex items-center gap-2 border border-red-200">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+                    <span className="text-red-500 font-bold text-sm tabular-nums">
+                      {`${Math.floor(recordingTime / 60)}:${String(recordingTime % 60).padStart(2, '0')}`}
+                    </span>
+                    <span className="text-red-400 text-[11px] ml-1">Solte p/ enviar</span>
+                  </motion.div>
+                ) : (
+                  <div className="flex-1 bg-slate-100 rounded-xl px-3 py-2">
+                    <textarea value={text} onChange={e => setText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
+                      placeholder="Sua mensagem..." rows={1} style={{ resize: 'none' }}
+                      className="w-full bg-transparent outline-none text-slate-900 text-sm max-h-24 overflow-y-auto" />
+                  </div>
+                )}
 
                 {text.trim() ? (
                   <button onClick={handleSendText} className="w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 flex-shrink-0">
@@ -413,7 +475,6 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
                   </button>
                 )}
               </div>
-              {recording && <p className="text-[10px] text-red-500 font-bold text-center mt-1 animate-pulse">Solte para enviar áudio</p>}
             </div>
           </motion.div>
         )}

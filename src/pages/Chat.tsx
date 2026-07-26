@@ -100,10 +100,26 @@ function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
   return (
     <div className="flex items-center gap-2.5 min-w-[220px] max-w-[260px]">
       <audio ref={audioRef} src={url} preload="metadata"
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onLoadedMetadata={() => {
+          if (audioRef.current) {
+            // Bugfix para WebM q não informa duration (dá Infinity):
+            if (audioRef.current.duration === Infinity) {
+              audioRef.current.currentTime = 1e10; // Força pular pro final
+              audioRef.current.addEventListener('timeupdate', function fixDuration() {
+                if (audioRef.current && audioRef.current.duration !== Infinity) {
+                  audioRef.current.currentTime = 0;
+                  setDuration(audioRef.current.duration);
+                  audioRef.current.removeEventListener('timeupdate', fixDuration);
+                }
+              });
+            } else {
+              setDuration(audioRef.current.duration);
+            }
+          }
+        }}
         onEnded={() => { setPlaying(false); setProgress(0); setCurrentTime(0); }}
         onTimeUpdate={() => {
-          if (!audioRef.current?.duration) return;
+          if (!audioRef.current || audioRef.current.duration === Infinity) return;
           const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
           setProgress(pct);
           setCurrentTime(audioRef.current.currentTime);
@@ -398,11 +414,19 @@ export default function Chat() {
         console.log('[AUDIO] Blob criado. Tamanho:', blob.size, 'Tipo:', blob.type);
         setRecording(false);
         recordingRef.current = false;
+
+        // No iOS, se não forçarmos a extensão certa para blobs mp4/m4a nativos, Chrome falha e dá Zero Bytes.
+        // Se a string mimeType estiver em branco, vamos injetar uma detecção via SO
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        let ext = 'webm';
+        if (blobType.includes('mp4') || isIOS) ext = 'mp4';
+        else if (blobType.includes('ogg')) ext = 'ogg';
+
         if (blob.size < 100) {
           console.warn('[AUDIO] Blob muito pequeno, ignorando:', blob.size);
           return;
         }
-        const ext = blobType.includes('ogg') ? 'ogg' : blobType.includes('mp4') ? 'mp4' : 'webm';
+
         const url = await uploadMedia(blob, ext);
         if (!url) { console.error('[AUDIO] Upload falhou, url null'); return; }
         const currentTenant = selectedTenantRef.current;
@@ -437,7 +461,8 @@ export default function Chat() {
         // E tb forca reload para garantir
         await loadMessages(currentTenant.id);
       };
-      mr.start(100); // coleta dados a cada 100ms para garantir chunks
+      // SEM mr.start(100). O partionamento de 100ms destrói contêineres MP4 do Safari. Start() puro consolida no final.
+      mr.start();
       mediaRecorderRef.current = mr;
       recordingRef.current = true;
       setRecording(true);
