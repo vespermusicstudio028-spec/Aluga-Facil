@@ -357,9 +357,7 @@ export default function Chat() {
   const handleMicPointerDown = async (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       audioChunksRef.current = [];
       mr.ondataavailable = ev => { if (ev.data.size > 0) audioChunksRef.current.push(ev.data); };
