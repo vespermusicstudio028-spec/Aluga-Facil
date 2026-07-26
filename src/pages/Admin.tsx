@@ -131,7 +131,7 @@ export default function Admin() {
       // Calculate MRR using dynamic pricing
       let mrr = 0;
       userList.forEach(u => {
-        if (u.status === 'active') {
+        if (u.status === 'active' && u.role !== 'admin') {
           if (u.plan === 'basic') mrr += pricing.basic;
           if (u.plan === 'professional') mrr += pricing.pro;
           if (u.plan === 'premium') mrr += pricing.premium;
