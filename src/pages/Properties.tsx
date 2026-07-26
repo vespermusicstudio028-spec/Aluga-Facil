@@ -1,15 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  MapPin, 
-  Home, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreVertical,
+  MapPin,
+  Home,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   X,
   Upload,
@@ -17,7 +17,7 @@ import {
   Edit2,
   Users,
   Share2,
-  
+
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -64,7 +64,7 @@ const PropertyPhotoCarousel = ({ photos, altText }: { photos: string[], altText:
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
-    
+
     if (isLeftSwipe) {
       setCurrentIndex(prev => (prev === photos.length - 1 ? 0 : prev + 1));
     } else if (isRightSwipe) {
@@ -73,29 +73,29 @@ const PropertyPhotoCarousel = ({ photos, altText }: { photos: string[], altText:
   };
 
   return (
-    <div 
+    <div
       className="w-full h-full relative group"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       <img src={photos[currentIndex]} alt={altText} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-      
+
       {photos.length > 1 && (
         <>
-          <button 
+          <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(prev => (prev === 0 ? photos.length - 1 : prev - 1)); }}
             className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
           >
             <ChevronLeft size={20} />
           </button>
-          <button 
+          <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(prev => (prev === photos.length - 1 ? 0 : prev + 1)); }}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
           >
             <ChevronRight size={20} />
           </button>
-          
+
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
             {photos.map((_, idx) => (
               <div
@@ -148,9 +148,9 @@ export default function Properties() {
         .select('*')
         .eq('owner_id', user?.uid)
         .order('created_at', { ascending: false });
-        
+
       if (error) throw error;
-      
+
       setProperties((data || []).map(p => ({
         id: p.id,
         ownerId: p.owner_id,
@@ -239,8 +239,8 @@ export default function Properties() {
         })
       );
 
-      setVilaHouses(prev => prev.map(h => 
-        h.id === houseId 
+      setVilaHouses(prev => prev.map(h =>
+        h.id === houseId
           ? { ...h, photos: [...h.photos, ...newPhotos].slice(0, 8) }
           : h
       ));
@@ -250,8 +250,8 @@ export default function Properties() {
   };
 
   const removeVilaPhoto = (houseId: string, photoIndex: number) => {
-    setVilaHouses(prev => prev.map(h => 
-      h.id === houseId 
+    setVilaHouses(prev => prev.map(h =>
+      h.id === houseId
         ? { ...h, photos: h.photos.filter((_, i) => i !== photoIndex) }
         : h
     ));
@@ -277,7 +277,7 @@ export default function Properties() {
       return;
     }
     setIsSaving(true);
-    
+
     // Função helper para forçar timeout se o Supabase travar
     const withTimeout = <T,>(promise: Promise<T>, ms = 8000) => {
       return Promise.race([
@@ -408,12 +408,12 @@ export default function Properties() {
   };
 
   const filteredProperties = properties.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.groupName && p.groupName.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -438,7 +438,7 @@ export default function Properties() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Meus Imóveis</h1>
           <p className="text-slate-500 dark:text-slate-400">Gerencie seu portfólio de propriedades.</p>
         </div>
-        <button 
+        <button
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
         >
@@ -451,20 +451,19 @@ export default function Properties() {
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Buscar por nome ou endereço..." 
+          <input
+            type="text"
+            placeholder="Buscar por nome ou endereço..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
           />
         </div>
         <div className="relative">
-          <button 
+          <button
             onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-            className={`flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold transition-all ${
-              statusFilter !== 'all' ? 'text-primary border-primary ring-2 ring-primary/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-            }`}
+            className={`flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold transition-all ${statusFilter !== 'all' ? 'text-primary border-primary ring-2 ring-primary/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
           >
             <Filter size={20} />
             {statusFilter === 'all' ? 'Filtros' : statusFilter === 'available' ? 'Disponível' : statusFilter === 'rented' ? 'Alugado' : 'Manutenção'}
@@ -474,31 +473,31 @@ export default function Properties() {
             {isFilterMenuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsFilterMenuOpen(false)} />
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
                 >
-                  <button 
+                  <button
                     onClick={() => { setStatusFilter('all'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'all' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
                     Todos
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setStatusFilter('available'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'available' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
                     Disponível
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setStatusFilter('rented'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'rented' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
                     Alugado
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setStatusFilter('maintenance'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'maintenance' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
@@ -521,22 +520,22 @@ export default function Properties() {
       ) : filteredProperties.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProperties.map((p) => (
-            <motion.div 
+            <motion.div
               layout
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              key={p.id} 
+              key={p.id}
               className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col"
             >
               <div className="h-48 bg-slate-200 dark:bg-slate-800 relative overflow-hidden flex-shrink-0">
                 <PropertyPhotoCarousel photos={p.photos || []} altText={p.name} />
                 <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-full text-xs font-bold shadow-sm">
                   <span className={
-                    p.status === 'available' ? 'text-secondary' : 
-                    p.status === 'rented' ? 'text-primary' : 'text-orange-500'
+                    p.status === 'available' ? 'text-secondary' :
+                      p.status === 'rented' ? 'text-primary' : 'text-orange-500'
                   }>
-                    {p.status === 'available' ? 'Disponível' : 
-                     p.status === 'rented' ? 'Alugado' : 'Manutenção'}
+                    {p.status === 'available' ? 'Disponível' :
+                      p.status === 'rented' ? 'Alugado' : 'Manutenção'}
                   </span>
                 </div>
                 {p.groupName && p.groupName.trim() !== '' && (
@@ -559,30 +558,30 @@ export default function Properties() {
                         <Share2 size={20} />
                       </button>
                     )}
-                    <button 
+                    <button
                       onClick={() => setActiveMenu(activeMenu === p.id ? null : p.id)}
                       className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                     >
                       <MoreVertical size={20} />
                     </button>
-                    
+
                     <AnimatePresence>
                       {activeMenu === p.id && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: -10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: -10 }}
                             className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
                           >
-                            <button 
+                            <button
                               onClick={() => { handleOpenModal(p); setActiveMenu(null); }}
                               className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             >
                               <Edit2 size={16} className="text-primary" /> Editar
                             </button>
-                            <button 
+                            <button
                               onClick={() => { handleDelete(p.id); setActiveMenu(null); }}
                               className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                             >
@@ -620,7 +619,7 @@ export default function Properties() {
           <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto">
             Comece adicionando seu primeiro imóvel para gerenciar seus aluguéis.
           </p>
-          <button 
+          <button
             onClick={() => handleOpenModal()}
             className="bg-primary text-white px-8 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
           >
@@ -633,14 +632,14 @@ export default function Properties() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -660,7 +659,7 @@ export default function Properties() {
                       {formData.photos.map((photo, idx) => (
                         <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 group">
                           <img src={photo} className="w-full h-full object-cover" />
-                          <button 
+                          <button
                             type="button"
                             onClick={() => removePhoto(idx)}
                             className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -670,10 +669,17 @@ export default function Properties() {
                         </div>
                       ))}
                       {formData.photos.length < 8 && (
-                        <label className="aspect-square rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                          <Plus size={20} className="text-slate-400" />
-                          <input type="file" className="hidden" accept="image/*" multiple onChange={handlePhotoUpload} />
-                        </label>
+                        <div className="aspect-square rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-1 p-1">
+                          <label className="flex flex-col items-center justify-center w-full cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md py-1 transition-colors" title="Escolher da galeria">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                            <input type="file" className="hidden" accept="image/*" multiple onChange={handlePhotoUpload} />
+                          </label>
+                          <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                          <label className="flex flex-col items-center justify-center w-full cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md py-1 transition-colors" title="Tirar foto com câmera">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                            <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handlePhotoUpload} />
+                          </label>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -683,37 +689,37 @@ export default function Properties() {
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     {formData.type === 'Vila' ? 'Nome da Vila' : 'Nome do Imóvel'}
                   </label>
-                  <input 
+                  <input
                     required
-                    type="text" 
-                    placeholder={formData.type === 'Vila' ? 'Ex: Vila Esperança' : 'Ex: Edifício Solar Apt 102'} 
+                    type="text"
+                    placeholder={formData.type === 'Vila' ? 'Ex: Vila Esperança' : 'Ex: Edifício Solar Apt 102'}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Endereço Completo</label>
-                  <input 
+                  <input
                     required
-                    type="text" 
-                    placeholder="Rua, Número, Bairro, Cidade" 
+                    type="text"
+                    placeholder="Rua, Número, Bairro, Cidade"
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   />
                 </div>
 
                 {formData.type !== 'Vila' && (
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Agrupamento (Vila / Condomínio)</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ex: Vila Esperança (Opcional)" 
+                    <input
+                      type="text"
+                      placeholder="Ex: Vila Esperança (Opcional)"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={formData.groupName}
-                      onChange={(e) => setFormData({...formData, groupName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
                     />
                   </div>
                 )}
@@ -721,10 +727,10 @@ export default function Properties() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipo</label>
-                    <select 
+                    <select
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                       disabled={!!editingProperty}
                     >
                       <option>Casa</option>
@@ -734,17 +740,17 @@ export default function Properties() {
                       {!editingProperty && <option>Vila</option>}
                     </select>
                   </div>
-                  
+
                   {formData.type !== 'Vila' && (
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor Aluguel</label>
-                      <input 
+                      <input
                         required
-                        type="number" 
-                        placeholder="R$ 0.00" 
+                        type="number"
+                        placeholder="R$ 0.00"
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                         value={formData.rentValue}
-                        onChange={(e) => setFormData({...formData, rentValue: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, rentValue: e.target.value })}
                       />
                     </div>
                   )}
@@ -756,7 +762,7 @@ export default function Properties() {
                       <h4 className="font-bold text-slate-900 dark:text-white">Casas na Vila</h4>
                       <span className="text-xs text-slate-500 font-bold">{vilaHouses.length}/20</span>
                     </div>
-                    
+
                     {vilaHouses.map((house, idx) => (
                       <div key={house.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
                         <div className="flex justify-between items-center mb-2">
@@ -771,10 +777,10 @@ export default function Properties() {
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1">Número</label>
-                            <input 
+                            <input
                               required
-                              type="text" 
-                              placeholder="Ex: Casa 1" 
+                              type="text"
+                              placeholder="Ex: Casa 1"
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-primary transition-all text-sm dark:text-white"
                               value={house.number}
                               onChange={(e) => updateVilaHouse(house.id, 'number', e.target.value)}
@@ -782,10 +788,10 @@ export default function Properties() {
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1">Valor Aluguel</label>
-                            <input 
+                            <input
                               required
-                              type="number" 
-                              placeholder="R$ 0.00" 
+                              type="number"
+                              placeholder="R$ 0.00"
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-primary transition-all text-sm dark:text-white"
                               value={house.rentValue}
                               onChange={(e) => updateVilaHouse(house.id, 'rentValue', e.target.value)}
@@ -793,7 +799,7 @@ export default function Properties() {
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
-                            <select 
+                            <select
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-primary transition-all text-sm dark:text-white"
                               value={house.status}
                               onChange={(e) => updateVilaHouse(house.id, 'status', e.target.value)}
@@ -811,7 +817,7 @@ export default function Properties() {
                             {house.photos.map((photo, pIdx) => (
                               <div key={pIdx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 group">
                                 <img src={photo} className="w-full h-full object-cover" />
-                                <button 
+                                <button
                                   type="button"
                                   onClick={() => removeVilaPhoto(house.id, pIdx)}
                                   className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -821,10 +827,17 @@ export default function Properties() {
                               </div>
                             ))}
                             {house.photos.length < 8 && (
-                              <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <Plus size={16} className="text-slate-400" />
-                                <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => handleVilaPhotoUpload(e, house.id)} />
-                              </label>
+                              <div className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-0.5 p-1">
+                                <label className="flex items-center justify-center w-full cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors flex-1" title="Galeria">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                                  <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => handleVilaPhotoUpload(e, house.id)} />
+                                </label>
+                                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                                <label className="flex items-center justify-center w-full cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors flex-1" title="Câmera">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                                  <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => handleVilaPhotoUpload(e, house.id)} />
+                                </label>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -832,7 +845,7 @@ export default function Properties() {
                     ))}
 
                     {vilaHouses.length < 20 && (
-                      <button 
+                      <button
                         type="button"
                         onClick={addVilaHouse}
                         className="w-full py-3 border-2 border-dashed border-primary text-primary rounded-xl font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
@@ -842,14 +855,14 @@ export default function Properties() {
                     )}
                   </div>
                 )}
-                
+
                 {formData.type !== 'Vila' && (
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Status</label>
-                    <select 
+                    <select
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value as PropertyStatus})}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as PropertyStatus })}
                     >
                       <option value="available">Disponível</option>
                       <option value="rented">Alugado</option>
@@ -859,14 +872,14 @@ export default function Properties() {
                 )}
 
                 <div className="pt-4 flex gap-4">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setIsModalOpen(false)}
                     className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     disabled={isSaving}
                     className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-opacity-90 shadow-lg shadow-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"

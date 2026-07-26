@@ -273,7 +273,7 @@ export default function Admin() {
         const nextDate = new Date();
         nextDate.setMonth(nextDate.getMonth() + 1);
 
-        await supabase.from('plan_invoices').insert({
+        const { error: insErr } = await supabase.from('plan_invoices').insert({
           user_id: uid,
           plan_id: plan,
           amount: cost,
@@ -281,6 +281,11 @@ export default function Admin() {
           paid_at: new Date().toISOString(),
           due_date: nextDate.toISOString()
         });
+
+        if (insErr) {
+          console.error("Supabase Invoice Error:", insErr);
+          alert("O plano foi atualizado, porém o banco de dados de segurança bloqueou a geração da fatura: " + insErr.message);
+        }
 
         await supabase.from('profiles').update({
           plan_expires_at: nextDate.toISOString(),
