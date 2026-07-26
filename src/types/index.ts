@@ -1,5 +1,5 @@
 export type UserRole = 'owner' | 'admin';
-export type UserPlan = 'basic' | 'professional' | 'premium';
+export type UserPlan = 'trial' | 'basic' | 'professional' | 'premium';
 export type UserStatus = 'active' | 'blocked';
 
 export interface User {

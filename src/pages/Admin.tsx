@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/Layout';
-import { 
-  Users, ShieldCheck, TrendingUp, UserPlus, 
+import {
+  Users, ShieldCheck, TrendingUp, UserPlus,
   Settings as SettingsIcon, Trash2, Download,
   CheckCircle2, Lock, Unlock, Crown, Search,
   RefreshCw, Building2, CreditCard, AlertTriangle,
@@ -17,13 +17,15 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const PLAN_LABELS: Record<UserPlan, string> = {
+  trial: 'Trial (Teste)',
   basic: 'Basic',
   professional: 'Professional',
   premium: 'Premium',
 };
 
 const PLAN_COLORS: Record<UserPlan, string> = {
-  basic: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  trial: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+  basic: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100',
   professional: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   premium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
@@ -33,9 +35,9 @@ type TabType = 'overview' | 'activities' | 'broadcast' | 'settings' | 'invoices'
 export default function Admin() {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  
+
   // Overview state
   const [users, setUsers] = useState<User[]>([]);
   const [filtered, setFiltered] = useState<User[]>([]);
@@ -44,7 +46,7 @@ export default function Admin() {
   const [planFilter, setPlanFilter] = useState<'all' | UserPlan>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
   const [actionUserId, setActionUserId] = useState<string | null>(null);
-  
+
   // Pricing Settings
   const [pricing, setPricing] = useState({ basic: 0, pro: 49.90, premium: 99.90 });
   const [mpLinks, setMpLinks] = useState({ basic: '', pro: '', premium: '' });
@@ -64,7 +66,7 @@ export default function Admin() {
   const [userStats, setUserStats] = useState({ properties: 0, tenants: 0, loading: false });
   const [userActivities, setUserActivities] = useState<any[]>([]);
   const [loadingUserActivities, setLoadingUserActivities] = useState(false);
-  
+
   // Broadcast
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -102,7 +104,7 @@ export default function Admin() {
           setMpLinks(data.value.links);
         }
       }
-    } catch(e) {}
+    } catch (e) { }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -162,9 +164,9 @@ export default function Admin() {
         `)
         .order('created_at', { ascending: false })
         .limit(50);
-        
+
       if (!error && data) setActivities(data);
-    } catch (err) {} finally {
+    } catch (err) { } finally {
       setLoadingActivities(false);
     }
   }, []);
@@ -175,7 +177,7 @@ export default function Admin() {
   }, [fetchSettings]);
 
   // Atualiza os dados da aba ativa
-  useEffect(() => { 
+  useEffect(() => {
     if (activeTab === 'overview') fetchData();
     if (activeTab === 'activities') fetchActivities();
   }, [fetchData, fetchActivities, activeTab]);
@@ -233,7 +235,7 @@ export default function Admin() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => fetchData())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
-         if(activeTab === 'activities') fetchActivities()
+        if (activeTab === 'activities') fetchActivities()
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -269,7 +271,7 @@ export default function Admin() {
       await supabase.rpc('delete_user_account', { p_user_id: uid });
       setActionUserId(null);
       fetchData();
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       alert("Erro ao excluir usuário. Certifique-se de ter rodado o script SQL.");
     }
@@ -279,7 +281,7 @@ export default function Admin() {
     setSelectedUser(user);
     setUserStats({ properties: 0, tenants: 0, loading: true });
     setLoadingUserActivities(true);
-    
+
     try {
       const [{ count: pCount }, { count: tCount }, { data: logs }] = await Promise.all([
         supabase.from('properties').select('*', { count: 'exact', head: true }).eq('owner_id', user.uid),
@@ -288,8 +290,8 @@ export default function Admin() {
       ]);
       setUserStats({ properties: pCount ?? 0, tenants: tCount ?? 0, loading: false });
       setUserActivities(logs || []);
-    } catch(e) {
-      setUserStats(s => ({...s, loading: false}));
+    } catch (e) {
+      setUserStats(s => ({ ...s, loading: false }));
     } finally {
       setLoadingUserActivities(false);
     }
@@ -297,19 +299,19 @@ export default function Admin() {
 
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!broadcastTitle || !broadcastMsg) return;
+    if (!broadcastTitle || !broadcastMsg) return;
     setBroadcastLoading(true);
     try {
       const { error } = await supabase.rpc('broadcast_notification', {
         p_title: broadcastTitle,
         p_message: broadcastMsg
       });
-      if(error) throw error;
+      if (error) throw error;
       setBroadcastSuccess(true);
       setBroadcastTitle('');
       setBroadcastMsg('');
       setTimeout(() => setBroadcastSuccess(false), 3000);
-    } catch(err) {
+    } catch (err) {
       alert("Erro ao enviar comunicado. Tente rodar o script SQL de permissões.");
     } finally {
       setBroadcastLoading(false);
@@ -325,7 +327,7 @@ export default function Admin() {
       });
       alert("Configurações salvas com sucesso!");
       fetchData(); // Recalculate MRR
-    } catch(e) {
+    } catch (e) {
       alert("Erro ao salvar. Rode o script SQL global_settings.");
     } finally {
       setSavingPricing(false);
@@ -335,11 +337,11 @@ export default function Admin() {
   const exportCSV = () => {
     const headers = ["ID", "Nome", "Email", "Plano", "Status", "Data de Cadastro"];
     const rows = filtered.map(u => [
-      u.uid, 
-      `"${u.name}"`, 
-      u.email, 
-      u.plan, 
-      u.status, 
+      u.uid,
+      `"${u.name}"`,
+      u.email,
+      u.plan,
+      u.status,
       u.createdAt ? format(new Date(u.createdAt), "dd/MM/yyyy") : ""
     ]);
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -425,7 +427,7 @@ export default function Admin() {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar usuário..." className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <select value={planFilter} onChange={e => setPlanFilter(e.target.value as any)} className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="all">Planos (Todos)</option><option value="basic">Basic</option><option value="professional">Professional</option><option value="premium">Premium</option>
+              <option value="all">Planos (Todos)</option><option value="trial">Trial (Teste)</option><option value="basic">Basic</option><option value="professional">Professional</option><option value="premium">Premium</option>
             </select>
           </div>
 
@@ -481,7 +483,7 @@ export default function Admin() {
                           </button>
                           {actionUserId === u.uid && (
                             <div className="absolute right-0 top-10 z-50 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2">
-                              {(['basic', 'professional', 'premium'] as UserPlan[]).map(plan => (
+                              {(['trial', 'basic', 'professional', 'premium'] as UserPlan[]).map(plan => (
                                 <button key={plan} onClick={() => changePlan(u.uid, plan)} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">{PLAN_LABELS[plan]}</button>
                               ))}
                               <div className="border-t my-1 border-slate-100 dark:border-slate-800" />
@@ -489,7 +491,7 @@ export default function Admin() {
                                 {u.status === 'active' ? 'Bloquear conta' : 'Desbloquear'}
                               </button>
                               <button onClick={() => deleteUser(u.uid)} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl flex items-center gap-2">
-                                <Trash2 size={14}/> Excluir Conta
+                                <Trash2 size={14} /> Excluir Conta
                               </button>
                             </div>
                           )}
@@ -512,7 +514,7 @@ export default function Admin() {
             <div className="space-y-6">
               {loadingActivities ? (
                 <div className="animate-pulse space-y-4">
-                  {[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl w-full" />)}
+                  {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl w-full" />)}
                 </div>
               ) : activities.length === 0 ? (
                 <p className="text-slate-500 text-sm">Nenhuma atividade registrada ainda. Execute o script de triggers no banco se o log estiver vazio.</p>
@@ -543,7 +545,7 @@ export default function Admin() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Enviar Comunicado Global</h3>
             <p className="text-sm text-slate-500 mb-6">Esta mensagem aparecerá como uma notificação para TODOS os proprietários cadastrados.</p>
-            
+
             <form onSubmit={handleBroadcast} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Título do Comunicado</label>
@@ -569,29 +571,29 @@ export default function Admin() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Configurações Globais</h3>
             <p className="text-sm text-slate-500 mb-6">Ajuste os valores dos planos para refletir no cálculo de Receita (MRR).</p>
-            
+
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Basic (R$)</label>
-                  <input type="number" step="0.01" value={pricing.basic} onChange={e => setPricing({...pricing, basic: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <input type="number" step="0.01" value={pricing.basic} onChange={e => setPricing({ ...pricing, basic: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Basic)</label>
-                  <input type="text" value={mpLinks.basic} onChange={e => setMpLinks({...mpLinks, basic: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                  <input type="text" value={mpLinks.basic} onChange={e => setMpLinks({ ...mpLinks, basic: e.target.value })} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Professional (R$)</label>
-                  <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({...pricing, pro: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <input type="number" step="0.01" value={pricing.pro} onChange={e => setPricing({ ...pricing, pro: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Pro)</label>
-                  <input type="text" value={mpLinks.pro} onChange={e => setMpLinks({...mpLinks, pro: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                  <input type="text" value={mpLinks.pro} onChange={e => setMpLinks({ ...mpLinks, pro: e.target.value })} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Preço Plano Premium (R$)</label>
-                  <input type="number" step="0.01" value={pricing.premium} onChange={e => setPricing({...pricing, premium: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
+                  <input type="number" step="0.01" value={pricing.premium} onChange={e => setPricing({ ...pricing, premium: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30" />
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-2 text-xs">Link Mercado Pago (Premium)</label>
-                  <input type="text" value={mpLinks.premium} onChange={e => setMpLinks({...mpLinks, premium: e.target.value})} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
+                  <input type="text" value={mpLinks.premium} onChange={e => setMpLinks({ ...mpLinks, premium: e.target.value })} placeholder="https://mpago.la/..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" />
                 </div>
               </div>
-              
+
               <button disabled={savingPricing} onClick={saveSettings} className="w-full mt-4 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-colors">
                 {savingPricing ? <RefreshCw className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
                 Salvar Configurações
@@ -724,7 +726,7 @@ export default function Admin() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Botões de Contato Rápido */}
                   <div className="mt-4 flex gap-2">
                     <a href={`mailto:${selectedUser.email}`} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors">
@@ -735,7 +737,7 @@ export default function Admin() {
                     </a>
                   </div>
                 </div>
-                
+
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedUser.name}</h2>
                 <p className="text-slate-500 mb-6">{selectedUser.email}</p>
 
@@ -766,11 +768,11 @@ export default function Admin() {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Renovação / Expiração:</span>
                     <span className="font-medium text-slate-900 dark:text-white">
-                      {selectedUser.plan === 'basic' 
-                        ? 'Plano Gratuito (Vitalício)' 
-                        : (selectedUser.createdAt 
-                            ? `Todo dia ${new Date(selectedUser.createdAt).getDate()}` 
-                            : 'N/A')}
+                      {selectedUser.plan === 'basic'
+                        ? 'Plano Gratuito (Vitalício)'
+                        : (selectedUser.createdAt
+                          ? `Todo dia ${new Date(selectedUser.createdAt).getDate()}`
+                          : 'N/A')}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -784,12 +786,12 @@ export default function Admin() {
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-wider flex items-center gap-2">
                     <Activity size={16} /> Histórico Recente do Usuário
                   </h3>
-                  
+
                   <div className="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                     {loadingUserActivities ? (
-                       <p className="text-sm text-slate-500 animate-pulse">Carregando histórico...</p>
+                      <p className="text-sm text-slate-500 animate-pulse">Carregando histórico...</p>
                     ) : userActivities.length === 0 ? (
-                       <p className="text-sm text-slate-500">Nenhuma atividade registrada ainda.</p>
+                      <p className="text-sm text-slate-500">Nenhuma atividade registrada ainda.</p>
                     ) : userActivities.map(act => (
                       <div key={act.id} className="flex gap-3 text-sm">
                         <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0">

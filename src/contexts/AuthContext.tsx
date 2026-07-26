@@ -154,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           photo_url: googlePhoto || null,
           cover_url: null,
           role: 'owner',
-          plan: 'basic',
+          plan: 'trial',
           status: 'active',
           plan_expires_at: trialEndISO,
           created_at: createdAt
@@ -175,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           photoURL: googlePhoto,
           coverURL: undefined,
           role: 'owner',
-          plan: 'basic',
+          plan: 'trial',
           status: 'active',
           createdAt: createdAt,
           plan_expires_at: trialEndISO,
