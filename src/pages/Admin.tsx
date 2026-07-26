@@ -261,7 +261,38 @@ export default function Admin() {
   };
 
   const changePlan = async (uid: string, plan: UserPlan) => {
-    await supabase.from('profiles').update({ plan }).eq('id', uid);
+    try {
+      await supabase.from('profiles').update({ plan }).eq('id', uid);
+
+      if (plan !== 'trial') {
+        let cost = 0;
+        if (plan === 'basic') cost = pricing.basic;
+        if (plan === 'professional') cost = pricing.pro;
+        if (plan === 'premium') cost = pricing.premium;
+
+        const nextDate = new Date();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+
+        await supabase.from('plan_invoices').insert({
+          user_id: uid,
+          plan_id: plan,
+          amount: cost,
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          due_date: nextDate.toISOString()
+        });
+
+        await supabase.from('profiles').update({
+          plan_expires_at: nextDate.toISOString(),
+          status: 'active'
+        }).eq('id', uid);
+
+        if (activeTab === 'invoices') fetchAllInvoices();
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao alterar o plano.');
+    }
     setActionUserId(null);
   };
 

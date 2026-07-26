@@ -99,9 +99,35 @@ export default function MyPlan() {
     generateInvoiceIfNeeded();
   }, [daysLeft, nextExp, user, invoices, loading, pricing]);
 
-  const handleSubscribe = (planId: 'basic' | 'pro' | 'premium') => {
+  const handleSubscribe = async (planId: 'basic' | 'pro' | 'premium') => {
     const link = mpLinks[planId];
     if (link) {
+      if (user && !loading) {
+        // Create a pending invoice if one does not exist for this plan to make it trackable in Admin!
+        const pId = planId === 'pro' ? 'professional' : planId;
+        const hasPendingForPlan = invoices.some(i => i.status === 'pending' && i.plan_id === pId);
+
+        if (!hasPendingForPlan) {
+          let planCost = 0;
+          if (planId === 'basic') planCost = pricing.basic;
+          if (planId === 'pro') planCost = pricing.pro;
+          if (planId === 'premium') planCost = pricing.premium;
+
+          const dueDate = nextExp ? nextExp.toISOString() : new Date().toISOString();
+
+          const { data } = await supabase.from('plan_invoices').insert({
+            user_id: user.uid,
+            plan_id: pId,
+            amount: planCost,
+            status: 'pending',
+            due_date: dueDate
+          }).select();
+
+          if (data && data.length > 0) {
+            setInvoices(prev => [data[0], ...prev]);
+          }
+        }
+      }
       window.open(link, '_blank');
     } else {
       alert('O link de pagamento via Mercado Pago ainda não foi configurado pelo Administrador.');
