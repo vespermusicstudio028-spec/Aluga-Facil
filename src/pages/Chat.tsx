@@ -83,11 +83,20 @@ function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
   const BAR_COUNT = bars.length;
   const activeBars = Math.round((progress / 100) * BAR_COUNT);
 
-  const toggle = () => {
+  const toggle = async () => {
     if (!audioRef.current) return;
-    if (playing) audioRef.current.pause();
-    else audioRef.current.play();
-    setPlaying(!playing);
+    try {
+      if (playing) {
+        audioRef.current.pause();
+        setPlaying(false);
+      } else {
+        await audioRef.current.play();
+        setPlaying(true);
+      }
+    } catch (err) {
+      console.warn('[AUDIO] erro ao dar play:', err);
+      setPlaying(false);
+    }
   };
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -100,28 +109,15 @@ function AudioMessage({ url, isOwner }: { url: string; isOwner: boolean }) {
   return (
     <div className="flex items-center gap-2.5 min-w-[220px] max-w-[260px]">
       <audio ref={audioRef} src={url} preload="metadata"
-        onLoadedMetadata={() => {
-          if (audioRef.current) {
-            // Bugfix para WebM q não informa duration (dá Infinity):
-            if (audioRef.current.duration === Infinity) {
-              audioRef.current.currentTime = 1e10; // Força pular pro final
-              audioRef.current.addEventListener('timeupdate', function fixDuration() {
-                if (audioRef.current && audioRef.current.duration !== Infinity) {
-                  audioRef.current.currentTime = 0;
-                  setDuration(audioRef.current.duration);
-                  audioRef.current.removeEventListener('timeupdate', fixDuration);
-                }
-              });
-            } else {
-              setDuration(audioRef.current.duration);
-            }
-          }
-        }}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={() => { setPlaying(false); setProgress(0); setCurrentTime(0); }}
         onTimeUpdate={() => {
-          if (!audioRef.current || audioRef.current.duration === Infinity) return;
-          const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
-          setProgress(pct);
+          if (!audioRef.current) return;
+          const dur = audioRef.current.duration;
+          if (dur !== Infinity && dur > 0) {
+            const pct = (audioRef.current.currentTime / dur) * 100;
+            setProgress(pct);
+          }
           setCurrentTime(audioRef.current.currentTime);
         }} />
 
