@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { 
-  Building2, 
-  Users, 
-  ChevronRight, 
-  ChevronLeft, 
-  Home, 
-  MapPin, 
-  CheckCircle2, 
-  User, 
-  Camera, 
+import {
+  Building2,
+  Users,
+  ChevronRight,
+  ChevronLeft,
+  Home,
+  MapPin,
+  CheckCircle2,
+  User,
+  Camera,
   FileText,
   Trash2,
   Eye,
@@ -88,7 +88,7 @@ export default function NewTenantFlow() {
     }
   }, [startDate, leaseTerm, customLeaseTerm]);
 
-  
+
   const generateRandomPassword = (index: number) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
     let password = '';
@@ -179,7 +179,7 @@ export default function NewTenantFlow() {
           .select('*')
           .eq('owner_id', user.uid)
           .eq('status', 'available');
-          
+
         const props = (propsSnap || []).map(p => ({
           id: p.id,
           ownerId: p.owner_id,
@@ -230,7 +230,7 @@ export default function NewTenantFlow() {
             });
             setResidents(sanitizedResidents);
             setResidentCount(sanitizedResidents.length);
-            
+
             if (tenantData.payment_method) {
               setPaymentMethod(tenantData.payment_method as any);
             }
@@ -263,12 +263,12 @@ export default function NewTenantFlow() {
             if (tenantData.end_date) {
               setEndDate(tenantData.end_date);
             }
-            
+
             // For the selected property, we might need to fetch the specific property if it's already rented
             const { data: propDoc } = await supabase.from('properties').select('*').eq('id', tenantData.property_id).single();
             if (propDoc) {
-              const propData = { 
-                id: propDoc.id, 
+              const propData = {
+                id: propDoc.id,
                 ownerId: propDoc.owner_id,
                 name: propDoc.name,
                 address: propDoc.address,
@@ -299,32 +299,32 @@ export default function NewTenantFlow() {
   const handleResidentChange = (index: number, field: keyof Resident, value: any) => {
     const updated = [...residents];
     updated[index] = { ...updated[index], [field]: value };
-    
+
     // Ensure only one titular
     if (field === 'isTitular' && value === true) {
       updated.forEach((r, i) => {
         if (i !== index) r.isTitular = false;
       });
     }
-    
+
     setResidents(updated);
   };
 
   const handleDocumentChange = (index: number, field: keyof Resident['documents'], value: string) => {
     const updated = [...residents];
     const currentResident = updated[index];
-    updated[index] = { 
-      ...currentResident, 
-      documents: { 
+    updated[index] = {
+      ...currentResident,
+      documents: {
         ...(currentResident.documents || {
           rgFront: '',
           rgBack: '',
           cpf: '',
           residenceProof: '',
           incomeProof: ''
-        }), 
-        [field]: value 
-      } 
+        }),
+        [field]: value
+      }
     };
     setResidents(updated);
   };
@@ -366,7 +366,7 @@ export default function NewTenantFlow() {
     setResidents(current);
   };
 
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!user) {
       alert('Usuário não autenticado.');
       return;
@@ -425,7 +425,7 @@ const handleSubmit = async () => {
           .select('id')
           .eq('tenant_id', id)
           .eq('owner_id', user.uid);
-          
+
         if (qSnap && qSnap.length > 0) {
           await supabase.from('contracts').update({
             ...contractData,
@@ -556,7 +556,7 @@ const handleSubmit = async () => {
       const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      
+
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`contrato_${selectedProperty?.name.replace(/\s+/g, '_').toLowerCase()}.pdf`);
     } catch (err) {
@@ -575,23 +575,22 @@ const handleSubmit = async () => {
           <div className="flex justify-between items-center mb-4">
             {[1, 2, 3, 4, 5, 6].map((s) => (
               <div key={s} className="flex items-center gap-2">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                   step >= s ? 'bg-primary text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                 }`}>
-                   {step > s ? <CheckCircle2 size={20} /> : s}
-                 </div>
-                 <span className={`hidden sm:block font-bold ${step >= s ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                   {s === 1 ? 'Imóvel' : s === 2 ? 'Moradores' : s === 3 ? 'Dados' : s === 4 ? 'Prazo' : s === 5 ? 'Pagamento' : 'Contrato'}
-                 </span>
-                 {s < 6 && <div className={`w-12 h-1 ${step > s ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-800'} rounded-full mx-2`}></div>}
-               </div>
-             ))}
-           </div>
-         </div>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${step >= s ? 'bg-primary text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                  }`}>
+                  {step > s ? <CheckCircle2 size={20} /> : s}
+                </div>
+                <span className={`hidden sm:block font-bold ${step >= s ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                  {s === 1 ? 'Imóvel' : s === 2 ? 'Moradores' : s === 3 ? 'Dados' : s === 4 ? 'Prazo' : s === 5 ? 'Pagamento' : 'Contrato'}
+                </span>
+                {s < 6 && <div className={`w-12 h-1 ${step > s ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-800'} rounded-full mx-2`}></div>}
+              </div>
+            ))}
+          </div>
+        </div>
 
         <AnimatePresence mode="wait">
           {step === 1 && (
-            <motion.div 
+            <motion.div
               key="step1"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -609,7 +608,7 @@ const handleSubmit = async () => {
                   sortedGroups.map((group) => (
                     <div key={group} className="space-y-4">
                       {group !== 'Imóveis Individuais' && (
-                        <button 
+                        <button
                           onClick={() => setExpandedGroup(expandedGroup === group ? null : group)}
                           className="w-full flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                         >
@@ -626,7 +625,7 @@ const handleSubmit = async () => {
 
                       <AnimatePresence>
                         {(group === 'Imóveis Individuais' || expandedGroup === group) && (
-                          <motion.div 
+                          <motion.div
                             initial={group !== 'Imóveis Individuais' ? { height: 0, opacity: 0 } : false}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
@@ -634,24 +633,23 @@ const handleSubmit = async () => {
                           >
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                               {groupedProperties[group].map((p) => (
-                                <div 
+                                <div
                                   key={p.id}
                                   onClick={() => {
                                     setSelectedProperty(p);
                                     setStep(2);
                                   }}
-                                  className={`p-4 rounded-3xl border-2 transition-all cursor-pointer flex gap-4 items-center ${
-                                    selectedProperty?.id === p.id 
-                                      ? 'border-primary bg-primary/5 ring-4 ring-primary/10' 
+                                  className={`p-4 rounded-3xl border-2 transition-all cursor-pointer flex gap-4 items-center ${selectedProperty?.id === p.id
+                                      ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                                       : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-200 dark:hover:border-slate-700'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center shrink-0">
                                     <Home size={28} className="text-slate-400" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <h4 className="font-bold text-slate-900 dark:text-white truncate">{p.name}</h4>
-                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1"><MapPin size={12}/> {p.address}</p>
+                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1"><MapPin size={12} /> {p.address}</p>
                                     <p className="text-sm font-bold text-primary mt-1">R$ {p.rentValue.toLocaleString()}</p>
                                   </div>
                                 </div>
@@ -668,7 +666,7 @@ const handleSubmit = async () => {
           )}
 
           {step === 2 && (
-            <motion.div 
+            <motion.div
               key="step2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -683,11 +681,10 @@ const handleSubmit = async () => {
                       handleResidentCountChange(num);
                       setStep(3);
                     }}
-                    className={`p-6 rounded-3xl border-2 font-bold transition-all ${
-                      residentCount === num 
-                        ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20' 
+                    className={`p-6 rounded-3xl border-2 font-bold transition-all ${residentCount === num
+                        ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20'
                         : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-200'
-                    }`}
+                      }`}
                   >
                     {num === 5 ? '5 ou mais' : num}
                   </button>
@@ -702,7 +699,7 @@ const handleSubmit = async () => {
           )}
 
           {step === 3 && (
-            <motion.div 
+            <motion.div
               key="step3"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -723,11 +720,11 @@ const handleSubmit = async () => {
                       </div>
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={resident.isTitular}
                             onChange={(e) => handleResidentChange(index, 'isTitular', e.target.checked)}
-                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary" 
+                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
                           />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Titular do Contrato</span>
                         </label>
@@ -736,21 +733,42 @@ const handleSubmit = async () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="md:col-span-2 flex items-center gap-6 mb-4">
-                        <label className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 cursor-pointer hover:bg-slate-50 transition-colors overflow-hidden">
-                          {resident.photo ? (
-                            <img src={resident.photo} className="w-full h-full object-cover" />
-                          ) : (
-                            <>
-                              <Camera size={24} />
-                              <span className="text-[10px] font-bold mt-1 uppercase">Foto</span>
-                            </>
-                          )}
-                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(index, e)} />
-                        </label>
+                        <div className="flex flex-col items-center gap-2">
+                          {/* Foto do morador */}
+                          <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center">
+                            {resident.photo ? (
+                              <img src={resident.photo} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center text-slate-400">
+                                <Camera size={28} />
+                                <span className="text-[10px] font-bold mt-1 uppercase">Foto</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* Botões de seleção */}
+                          <div className="flex gap-2">
+                            <label
+                              className="flex flex-col items-center gap-1 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary text-slate-500 rounded-xl cursor-pointer transition-colors text-[10px] font-bold uppercase"
+                              title="Escolher da galeria"
+                            >
+                              <Upload size={16} />
+                              Galeria
+                              <input type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(index, e)} />
+                            </label>
+                            <label
+                              className="flex flex-col items-center gap-1 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-500/10 hover:text-emerald-600 text-slate-500 rounded-xl cursor-pointer transition-colors text-[10px] font-bold uppercase"
+                              title="Tirar foto com a câmera"
+                            >
+                              <Camera size={16} />
+                              Câmera
+                              <input type="file" className="hidden" accept="image/*" capture="user" onChange={(e) => handlePhotoUpload(index, e)} />
+                            </label>
+                          </div>
+                        </div>
                         <div className="flex-1">
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nome Completo</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                             value={resident.name}
                             onChange={(e) => handleResidentChange(index, 'name', e.target.value)}
@@ -760,8 +778,8 @@ const handleSubmit = async () => {
 
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">CPF</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                           value={resident.cpf}
                           onChange={(e) => handleResidentChange(index, 'cpf', e.target.value)}
@@ -769,8 +787,8 @@ const handleSubmit = async () => {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">RG</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                           value={resident.rg}
                           onChange={(e) => handleResidentChange(index, 'rg', e.target.value)}
@@ -778,8 +796,8 @@ const handleSubmit = async () => {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Telefone</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                           value={resident.phone}
                           onChange={(e) => handleResidentChange(index, 'phone', e.target.value)}
@@ -787,8 +805,8 @@ const handleSubmit = async () => {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">E-mail</label>
-                        <input 
-                          type="email" 
+                        <input
+                          type="email"
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                           value={resident.email}
                           onChange={(e) => handleResidentChange(index, 'email', e.target.value)}
@@ -816,7 +834,7 @@ const handleSubmit = async () => {
                           </button>
                         </div>
                         <div className="relative">
-                          <input 
+                          <input
                             type={showPasswords[index] ? "text" : "password"}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white font-mono text-lg tracking-wider"
                             value={resident.password || ''}
@@ -847,11 +865,10 @@ const handleSubmit = async () => {
                         const field = docItem.field as keyof Resident['documents'];
                         const isUploaded = !!resident.documents?.[field];
                         return (
-                          <label key={docItem.name} className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 border-2 border-dashed transition-all cursor-pointer overflow-hidden relative group ${
-                            isUploaded 
-                              ? 'border-primary bg-primary/5' 
+                          <label key={docItem.name} className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 border-2 border-dashed transition-all cursor-pointer overflow-hidden relative group ${isUploaded
+                              ? 'border-primary bg-primary/5'
                               : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                          }`}>
+                            }`}>
                             {isUploaded ? (
                               <>
                                 <img src={resident.documents[field]} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-20 transition-opacity" />
@@ -864,11 +881,11 @@ const handleSubmit = async () => {
                                 <span className="text-[10px] font-bold text-slate-500 uppercase">{docItem.name}</span>
                               </>
                             )}
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={(e) => handleDocUpload(index, field, e)} 
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={(e) => handleDocUpload(index, field, e)}
                             />
                           </label>
                         );
@@ -881,8 +898,8 @@ const handleSubmit = async () => {
                 <button onClick={() => setStep(2)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center gap-2">
                   <ChevronLeft size={20} /> Voltar
                 </button>
-                <button 
-                  onClick={() => setStep(4)} 
+                <button
+                  onClick={() => setStep(4)}
                   disabled={isLoading || !residents.some(r => r.isTitular)}
                   className="px-10 py-3 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50"
                 >
@@ -893,7 +910,7 @@ const handleSubmit = async () => {
           )}
 
           {step === 4 && (
-            <motion.div 
+            <motion.div
               key="step4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -901,7 +918,7 @@ const handleSubmit = async () => {
             >
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Prazo da Locação</h2>
               <p className="text-slate-500 mb-8 font-medium">Defina o tempo de contrato e as datas de vigência.</p>
-              
+
               <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-8">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
@@ -912,11 +929,10 @@ const handleSubmit = async () => {
                       <button
                         key={term}
                         onClick={() => setLeaseTerm(term)}
-                        className={`p-4 rounded-2xl border-2 font-bold transition-all ${
-                          leaseTerm === term 
-                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10' 
+                        className={`p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === term
+                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                             : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
-                        }`}
+                          }`}
                       >
                         {term} meses
                       </button>
@@ -924,11 +940,10 @@ const handleSubmit = async () => {
                     <div className="relative">
                       <button
                         onClick={() => setLeaseTerm('other')}
-                        className={`w-full p-4 rounded-2xl border-2 font-bold transition-all ${
-                          leaseTerm === 'other' 
-                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10' 
+                        className={`w-full p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === 'other'
+                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                             : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
-                        }`}
+                          }`}
                       >
                         Outro
                       </button>
@@ -936,13 +951,13 @@ const handleSubmit = async () => {
                   </div>
 
                   {leaseTerm === 'other' && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="mt-4"
                     >
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={customLeaseTerm}
                         onChange={(e) => setCustomLeaseTerm(e.target.value)}
                         placeholder="Digite o número de meses"
@@ -955,8 +970,8 @@ const handleSubmit = async () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Início:</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
@@ -964,8 +979,8 @@ const handleSubmit = async () => {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Término:</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
@@ -978,8 +993,8 @@ const handleSubmit = async () => {
                 <button onClick={() => setStep(3)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center gap-2">
                   <ChevronLeft size={20} /> Voltar
                 </button>
-                <button 
-                  onClick={() => setStep(5)} 
+                <button
+                  onClick={() => setStep(5)}
                   disabled={isLoading || !startDate || !endDate || (leaseTerm === 'other' && !customLeaseTerm)}
                   className="px-10 py-3 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50"
                 >
@@ -990,7 +1005,7 @@ const handleSubmit = async () => {
           )}
 
           {step === 5 && (
-            <motion.div 
+            <motion.div
               key="step5"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -998,7 +1013,7 @@ const handleSubmit = async () => {
             >
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Forma de Pagamento</h2>
               <p className="text-slate-500 mb-8 font-medium">Selecione o método de pagamento preferencial do inquilino.</p>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
                   { id: 'pix', label: 'PIX', icon: pixIcon },
@@ -1008,15 +1023,14 @@ const handleSubmit = async () => {
                   <button
                     key={method.id}
                     onClick={() => setPaymentMethod(method.id as any)}
-                    className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-6 transition-all ${
-                      paymentMethod === method.id 
-                        ? 'border-primary bg-primary/5 ring-4 ring-primary/10' 
+                    className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-6 transition-all ${paymentMethod === method.id
+                        ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
+                      }`}
                   >
                     <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                      <img 
-                        src={method.icon} 
+                      <img
+                        src={method.icon}
                         alt={method.label}
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
@@ -1034,8 +1048,8 @@ const handleSubmit = async () => {
                   </label>
                   <div className="flex items-center gap-3">
                     <span className="text-slate-500 font-medium">Todo dia</span>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       min="1"
                       max="31"
                       value={dueDay}
@@ -1047,7 +1061,7 @@ const handleSubmit = async () => {
                 </div>
 
                 {paymentMethod === 'pix' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800"
@@ -1055,8 +1069,8 @@ const handleSubmit = async () => {
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                       Chave PIX (Opcional)
                     </label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={pixKey}
                       onChange={(e) => setPixKey(e.target.value)}
                       placeholder="E-mail, CPF, Celular ou Chave Aleatória"
@@ -1070,8 +1084,8 @@ const handleSubmit = async () => {
                 <button onClick={() => setStep(4)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center gap-2">
                   <ChevronLeft size={20} /> Voltar
                 </button>
-                <button 
-                  onClick={() => setStep(6)} 
+                <button
+                  onClick={() => setStep(6)}
                   disabled={isLoading || !paymentMethod}
                   className="px-10 py-3 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50"
                 >
@@ -1082,7 +1096,7 @@ const handleSubmit = async () => {
           )}
 
           {step === 6 && (
-            <motion.div 
+            <motion.div
               key="step6"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1090,7 +1104,7 @@ const handleSubmit = async () => {
             >
               <div ref={contractRef} className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 border-b border-slate-100 dark:border-slate-800 pb-4">Contrato de Locação</h2>
-                
+
                 {/* Imóvel */}
                 <div className="mb-8">
                   <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
@@ -1203,33 +1217,33 @@ const handleSubmit = async () => {
                   </h3>
                   <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
-                      <img 
-                        src={paymentMethod === 'pix' ? pixIcon : paymentMethod === 'credit' ? creditIcon : paymentMethod === 'debit' ? debitIcon : cashIcon} 
+                      <img
+                        src={paymentMethod === 'pix' ? pixIcon : paymentMethod === 'credit' ? creditIcon : paymentMethod === 'debit' ? debitIcon : cashIcon}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white text-lg">
-                         {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'boleto' ? 'Boleto' : 'Dinheiro'}
-                       </p>
-                       {paymentMethod === 'pix' && pixKey && <p className="text-slate-500 text-sm">Chave: {pixKey}</p>}
-                       <p className="text-slate-500 text-sm font-bold mt-1">Vencimento: Todo dia {dueDay} de cada mês.</p>
-                     </div>
-                   </div>
-                   
-                   <div className="mt-6 p-6 bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
-                     <h4 className="text-red-600 dark:text-red-400 font-bold text-sm mb-3 uppercase tracking-wider">ATRASO NO PAGAMENTO</h4>
-                     <p className="text-red-700 dark:text-red-300 text-sm mb-3 font-medium">Em caso de atraso no pagamento do aluguel serão aplicados:</p>
-                     <ul className="space-y-2 text-sm text-red-600 dark:text-red-400 list-disc pl-5 font-medium">
-                       <li>Multa de 2% sobre o valor devido;</li>
-                       <li>Juros de mora de 1% ao mês;</li>
-                       <li>Correção monetária conforme legislação vigente;</li>
-                       <li>Possibilidade de cobrança judicial e despejo conforme Lei nº 8.245/1991.</li>
-                     </ul>
-                   </div>
-                 </div>
+                        {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'boleto' ? 'Boleto' : 'Dinheiro'}
+                      </p>
+                      {paymentMethod === 'pix' && pixKey && <p className="text-slate-500 text-sm">Chave: {pixKey}</p>}
+                      <p className="text-slate-500 text-sm font-bold mt-1">Vencimento: Todo dia {dueDay} de cada mês.</p>
+                    </div>
+                  </div>
 
-                 {/* Termos e Cláusulas */}
+                  <div className="mt-6 p-6 bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
+                    <h4 className="text-red-600 dark:text-red-400 font-bold text-sm mb-3 uppercase tracking-wider">ATRASO NO PAGAMENTO</h4>
+                    <p className="text-red-700 dark:text-red-300 text-sm mb-3 font-medium">Em caso de atraso no pagamento do aluguel serão aplicados:</p>
+                    <ul className="space-y-2 text-sm text-red-600 dark:text-red-400 list-disc pl-5 font-medium">
+                      <li>Multa de 2% sobre o valor devido;</li>
+                      <li>Juros de mora de 1% ao mês;</li>
+                      <li>Correção monetária conforme legislação vigente;</li>
+                      <li>Possibilidade de cobrança judicial e despejo conforme Lei nº 8.245/1991.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Termos e Cláusulas */}
                 <div className="space-y-8 mb-8">
                   <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-wider">7. OBRIGAÇÕES DO LOCATÁRIO</h3>
@@ -1319,7 +1333,7 @@ const handleSubmit = async () => {
                   <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2 uppercase tracking-wider">
                     15. ASSINATURA DIGITAL
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Locatário */}
                     <div className="space-y-4">
@@ -1328,7 +1342,7 @@ const handleSubmit = async () => {
                         {signatureImage ? (
                           <div className="relative">
                             <img src={signatureImage} alt="Assinatura Locatário" className="mx-auto max-h-32 bg-white rounded-xl shadow-sm" />
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setSignatureImage(null)}
                               className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
@@ -1339,21 +1353,21 @@ const handleSubmit = async () => {
                         ) : (
                           <>
                             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 h-32 overflow-hidden">
-                              <SignatureCanvas 
+                              <SignatureCanvas
                                 ref={sigCanvas}
                                 penColor="black"
                                 canvasProps={{ className: 'w-full h-full' }}
                               />
                             </div>
                             <div className="flex gap-2 mt-3">
-                              <button 
+                              <button
                                 type="button"
                                 onClick={clearSignature}
                                 className="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1"
                               >
                                 <Eraser size={14} /> Limpar
                               </button>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={saveSignature}
                                 className="flex-1 py-2 bg-primary text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"
@@ -1384,7 +1398,7 @@ const handleSubmit = async () => {
                         ) : ownerSignatureImage ? (
                           <div className="relative">
                             <img src={ownerSignatureImage} alt="Assinatura Locador" className="mx-auto max-h-32 bg-white rounded-xl shadow-sm" />
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setOwnerSignatureImage(null)}
                               className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
@@ -1395,21 +1409,21 @@ const handleSubmit = async () => {
                         ) : (
                           <>
                             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 h-32 overflow-hidden">
-                              <SignatureCanvas 
+                              <SignatureCanvas
                                 ref={ownerSigCanvas}
                                 penColor="black"
                                 canvasProps={{ className: 'w-full h-full' }}
                               />
                             </div>
                             <div className="flex gap-2 mt-3">
-                              <button 
+                              <button
                                 type="button"
                                 onClick={clearOwnerSignature}
                                 className="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1"
                               >
                                 <Eraser size={14} /> Limpar
                               </button>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={saveOwnerSignature}
                                 className="flex-1 py-2 bg-primary text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"
@@ -1439,11 +1453,11 @@ const handleSubmit = async () => {
 
                 <div className="space-y-4">
                   <label className="flex items-center gap-3 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl cursor-pointer hover:bg-primary/10 transition-colors border border-primary/20">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={contractAccepted}
                       onChange={(e) => setContractAccepted(e.target.checked)}
-                      className="w-6 h-6 rounded border-slate-300 text-primary focus:ring-primary" 
+                      className="w-6 h-6 rounded border-slate-300 text-primary focus:ring-primary"
                     />
                     <span className="font-bold text-slate-900 dark:text-white">Declaro que li e concordo com todos os termos deste contrato.</span>
                   </label>
@@ -1451,14 +1465,14 @@ const handleSubmit = async () => {
               </div>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button 
+                <button
                   onClick={generatePDF}
                   className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-200 shadow-sm"
                 >
                   <FileText size={20} /> 📄 Gerar Contrato PDF
                 </button>
-                <button 
-                  onClick={handleSubmit} 
+                <button
+                  onClick={handleSubmit}
                   disabled={isLoading}
                   className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-primary/20 disabled:opacity-50"
                 >
