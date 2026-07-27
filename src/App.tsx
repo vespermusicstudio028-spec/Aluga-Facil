@@ -6,7 +6,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   constructor(props: any) {
     super(props);
     this.state = { error: null };
@@ -15,9 +15,9 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
   render() {
     if (this.state.error) {
       return (
-        <div style={{padding: 40, fontFamily: 'monospace', background: '#1e1e1e', color: '#ff6b6b', minHeight: '100vh'}}>
-          <h2 style={{color: '#ff6b6b', marginBottom: 16}}>⚠️ Erro de Runtime</h2>
-          <pre style={{background: '#2d2d2d', padding: 20, borderRadius: 8, overflowX: 'auto', color: '#f8f8f2', whiteSpace: 'pre-wrap'}}>
+        <div style={{ padding: 40, fontFamily: 'monospace', background: '#1e1e1e', color: '#ff6b6b', minHeight: '100vh' }}>
+          <h2 style={{ color: '#ff6b6b', marginBottom: 16 }}>⚠️ Erro de Runtime</h2>
+          <pre style={{ background: '#2d2d2d', padding: 20, borderRadius: 8, overflowX: 'auto', color: '#f8f8f2', whiteSpace: 'pre-wrap' }}>
             {this.state.error.message}{'\n\n'}{this.state.error.stack}
           </pre>
         </div>
@@ -62,21 +62,13 @@ const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.Re
       <p className="text-slate-500 font-medium">Processando login...</p>
     </div>
   );
-  
+
   if (!user) return <Navigate to="/login" replace />;
   if (requireAdmin && user.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };
 
-// Redireciona admin para /admin automaticamente ao acessar /dashboard
-const AdminRedirect = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  const isOauthCallback = window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token');
-  if (loading || isOauthCallback) return null;
-  if (user?.role === 'admin') return <Navigate to="/admin" replace />;
-  return <>{children}</>;
-};
 
 function AppRoutes() {
   return (
@@ -87,8 +79,8 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/tenant-dashboard" element={<TenantDashboard />} />
       <Route path="/register" element={<Register />} />
-      
-      <Route path="/dashboard" element={<ProtectedRoute><AdminRedirect><Dashboard /></AdminRedirect></ProtectedRoute>} />
+
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
       <Route path="/properties/:id" element={<ProtectedRoute><PropertyDetails /></ProtectedRoute>} />
       <Route path="/tenants" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
