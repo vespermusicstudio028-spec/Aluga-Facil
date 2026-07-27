@@ -620,14 +620,14 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Botão Flutuante de Inquilinos - Only if not locked and not in settings/profile/plan */}
-      {!isSystemLocked && !['/tenants', '/plan', '/profile', '/settings'].includes(location.pathname) && (
+      {!isSystemLocked && !['/tenants/new', '/plan', '/profile', '/settings'].includes(location.pathname) && (
         <Link
-          to="/tenants"
+          to="/tenants/new"
           className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
         >
           <UsersIcon size={26} />
           <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-            Inquilinos
+            Novo Inquilino
           </span>
         </Link>
       )}
