@@ -108,10 +108,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await supabase.from('profiles').update({
             plan_expires_at: trialEndISO,
             status: 'active',
+            plan: 'trial'
           }).eq('id', uid);
 
           profileData.plan_expires_at = trialEndISO;
           profileData.status = 'active';
+          profileData.plan = 'trial';
+        } else if (
+          profileData.plan === 'basic' &&
+          profileData.created_at &&
+          profileData.plan_expires_at &&
+          profileData.role !== 'admin'
+        ) {
+          const created = new Date(profileData.created_at);
+          const expires = new Date(profileData.plan_expires_at);
+          const diffDays = Math.round((expires.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Se o plano expira em 5 dias ou menos a partir da criação, é o trial automático do banco
+          if (diffDays <= TRIAL_DAYS) {
+            await supabase.from('profiles').update({ plan: 'trial' }).eq('id', uid);
+            profileData.plan = 'trial';
+          }
         }
         // ─────────────────────────────────────────────────────────────────
 
