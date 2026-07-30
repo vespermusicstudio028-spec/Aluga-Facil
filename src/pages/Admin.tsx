@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { User, UserPlan } from '../types';
+import { determineActualPlan } from '../lib/planHelper';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -121,7 +122,7 @@ export default function Admin() {
         uid: d.id,
         email: d.email,
         name: d.name,
-        plan: d.plan,
+        plan: determineActualPlan(d.plan, d.created_at, d.plan_expires_at) as UserPlan,
         status: d.status,
         role: d.role,
         photoURL: d.photo_url,

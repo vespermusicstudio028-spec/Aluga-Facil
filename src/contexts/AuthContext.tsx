@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, UserRole, UserPlan } from '../types';
+import { determineActualPlan } from '../lib/planHelper';
 
 interface AuthContextType {
   user: User | null;
@@ -151,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           photoURL: profileData.photo_url || undefined,
           coverURL: profileData.cover_url || undefined,
           role: profileData.role as UserRole,
-          plan: profileData.plan as UserPlan,
+          plan: determineActualPlan(profileData.plan, profileData.created_at, profileData.plan_expires_at) as UserPlan,
           status: profileData.status,
           createdAt: profileData.created_at,
           plan_expires_at: profileData.plan_expires_at || undefined,
