@@ -161,7 +161,7 @@ export default function MyPlan() {
     }
   };
 
-  const isFreeTrial = invoices.length === 0 && daysLeft !== null && daysLeft >= 0;
+  const isFreeTrial = user?.plan === 'trial' && daysLeft !== null && daysLeft >= 0;
   // Só marca como atual se não for free trial OU se for free trial não marca nenhum dos cartões de baixo,
   // pois o trial engloba as funcionalidades premium.
   const isCurrentPlan = (planId: UserPlan) => !isFreeTrial && user?.plan === planId;
