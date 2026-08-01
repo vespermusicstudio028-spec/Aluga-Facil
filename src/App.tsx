@@ -29,6 +29,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import CookieBanner from './components/CookieBanner';
+import PWAPrompt from './components/PWAPrompt';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -117,6 +118,7 @@ export default function App() {
           <Router>
             <AppRoutes />
             <CookieBanner />
+            <PWAPrompt />
           </Router>
         </AuthProvider>
       </ThemeProvider>
