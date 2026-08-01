@@ -138,20 +138,10 @@ export default function MyPlan() {
     if (!window.confirm("Confirmar que você já realizou o pagamento desta fatura? O seu sistema será desbloqueado automaticamente.")) return;
     setConfirming(inv.id);
     try {
-      // 1. Marca fatura como paga
-      await supabase.from('plan_invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', inv.id);
+      // Marca a fatura como em análise para revisão administrativa
+      await supabase.from('plan_invoices').update({ status: 'under_review' }).eq('id', inv.id);
 
-      // 2. Calcula nova expiração (+1 mês da data de vencimento original)
-      const nextDate = new Date(inv.due_date);
-      nextDate.setMonth(nextDate.getMonth() + 1);
-
-      // 3. Atualiza perfil
-      await supabase.from('profiles').update({
-        status: 'active',
-        plan_expires_at: nextDate.toISOString()
-      }).eq('id', user?.uid);
-
-      alert("Pagamento confirmado com sucesso! O seu sistema foi restaurado.");
+      alert("Recebemos sua solicitação! O pagamento está em análise técnica pela equipe e será liberado quando identificado no sistema.");
       window.location.reload();
     } catch (e) {
       console.error(e);
@@ -328,6 +318,10 @@ export default function MyPlan() {
                           {inv.status === 'paid' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                               <CheckCircle2 size={14} /> Pago
+                            </span>
+                          ) : inv.status === 'under_review' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              <RefreshCw size={14} className="animate-spin-slow" /> Em Análise
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
