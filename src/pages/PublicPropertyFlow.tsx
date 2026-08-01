@@ -3,17 +3,21 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Property, User, Resident } from '../types';
 import { motion } from 'motion/react';
-import { 
-  Home, 
-  MapPin, 
-  Phone, 
-  MessageCircle, 
-  ChevronRight, 
+import {
+  Home,
+  MapPin,
+  Phone,
+  MessageCircle,
+  ChevronRight,
   ChevronLeft,
   User as UserIcon,
   Calendar,
   CreditCard,
-  CheckCircle2
+  CheckCircle2,
+  Bed,
+  Bath,
+  Car,
+  Maximize2
 } from 'lucide-react';
 
 function createEmptyResident(isTitular = true): Resident {
@@ -57,7 +61,7 @@ export default function PublicPropertyFlow() {
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
-    
+
     if (isLeftSwipe) {
       setCurrentPhotoIndex(prev => prev === (property?.photos?.length || 1) - 1 ? 0 : prev + 1);
     } else if (isRightSwipe) {
@@ -87,11 +91,18 @@ export default function PublicPropertyFlow() {
             status: propData.status,
             groupName: propData.group_name,
             photos: propData.photos || [],
+            bedrooms: propData.bedrooms,
+            bathrooms: propData.bathrooms,
+            parkingSpaces: propData.parking_spaces,
+            area: propData.area,
+            iptuValue: propData.iptu_value,
+            condoValue: propData.condo_value,
+            zipCode: propData.zip_code,
             createdAt: propData.created_at,
             updatedAt: propData.updated_at
           } as Property;
           setProperty(mappedProp);
-          
+
           if (mappedProp.ownerId) {
             const { data: ownerData } = await supabase.from('profiles').select('*').eq('id', mappedProp.ownerId).single();
             if (ownerData) {
@@ -145,7 +156,7 @@ export default function PublicPropertyFlow() {
     if (!owner?.phone) return '#';
     let phone = owner.phone.replace(/\D/g, '');
     if (!phone.startsWith('55')) phone = '55' + phone;
-    
+
     let text = '';
     if (type === 'chat') {
       text = `Olá! Vi o imóvel "${property.name}" e gostaria de mais informações.`;
@@ -166,8 +177,35 @@ export default function PublicPropertyFlow() {
         text += `Chave PIX: ${pixKey}\n`;
       }
     }
-    
+
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  };
+
+  const handleScheduleVisit = async () => {
+    if (!property) return;
+    const name = prompt('Qual é o seu nome para agendar a visita?');
+    if (!name) return;
+    const visitDate = prompt('Quando você gostaria de visitar? (formato: AAAA-MM-DD)');
+    if (!visitDate || !/^\d{4}-\d{2}-\d{2}$/.test(visitDate)) {
+      alert('Data inválida. Use o formato AAAA-MM-DD');
+      return;
+    }
+    try {
+      await supabase.from('events').insert({
+        owner_id: property.ownerId,
+        title: `Visita: ${name} — ${property.name}`,
+        type: 'visit',
+        date: visitDate,
+        property_id: property.id,
+        notes: `Visita agendada pelo site público. Contato: ${name}`,
+        status: 'scheduled',
+        created_at: new Date().toISOString()
+      });
+      alert(`✅ Visita agendada com sucesso para ${visitDate}! O proprietário entrará em contato.`);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao agendar a visita. Tente novamente.');
+    }
   };
 
   return (
@@ -176,27 +214,27 @@ export default function PublicPropertyFlow() {
       <div className="h-64 sm:h-80 w-full bg-slate-200 dark:bg-slate-800 relative group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         {property.photos && property.photos.length > 0 ? (
           <>
-            <img 
-              src={property.photos[currentPhotoIndex]} 
-              alt={`${property.name} - Foto ${currentPhotoIndex + 1}`} 
-              className="w-full h-full object-cover transition-opacity duration-300" 
+            <img
+              src={property.photos[currentPhotoIndex]}
+              alt={`${property.name} - Foto ${currentPhotoIndex + 1}`}
+              className="w-full h-full object-cover transition-opacity duration-300"
             />
-            
+
             {property.photos.length > 1 && (
               <>
-                <button 
+                <button
                   onClick={() => setCurrentPhotoIndex(prev => prev === 0 ? (property.photos?.length || 1) - 1 : prev - 1)}
                   className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hidden md:flex z-20"
                 >
                   <ChevronLeft size={24} />
                 </button>
-                <button 
+                <button
                   onClick={() => setCurrentPhotoIndex(prev => prev === (property.photos?.length || 1) - 1 ? 0 : prev + 1)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hidden md:flex z-20"
                 >
                   <ChevronRight size={24} />
                 </button>
-                
+
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
                   {(Array.isArray(property.photos) ? property.photos : []).map((_, idx) => (
                     <button
@@ -228,31 +266,74 @@ export default function PublicPropertyFlow() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-6 relative z-10">
-        
+
         {step === 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {/* Price + CTA */}
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-700">
-              <div className="mb-8">
+              <div className="mb-6">
                 <p className="text-sm text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-1">Valor do Aluguel</p>
                 <div className="text-4xl font-bold text-primary">
                   R$ {Number(property.rentValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
+                {(property.iptuValue! > 0 || property.condoValue! > 0) && (
+                  <div className="text-sm text-slate-500 mt-2 flex gap-4">
+                    {property.iptuValue! > 0 && <span>+ IPTU: R$ {Number(property.iptuValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>}
+                    {property.condoValue! > 0 && <span>+ Cond.: R$ {Number(property.condoValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>}
+                  </div>
+                )}
               </div>
 
+              {/* Metadata chips */}
+              {(property.bedrooms || property.bathrooms || property.parkingSpaces || property.area) && (
+                <div className="flex flex-wrap gap-3 mb-6 pb-6 border-b border-slate-100 dark:border-slate-700">
+                  {property.bedrooms! > 0 && (
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <Bed size={18} className="text-primary" />
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{property.bedrooms} quarto{property.bedrooms !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {property.bathrooms! > 0 && (
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <Bath size={18} className="text-primary" />
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{property.bathrooms} banheiro{property.bathrooms !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {property.parkingSpaces! > 0 && (
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <Car size={18} className="text-primary" />
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{property.parkingSpaces} vaga{property.parkingSpaces !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {property.area! > 0 && (
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <Maximize2 size={18} className="text-primary" />
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{property.area} m²</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {owner?.phone ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <a 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <a
                     href={getWhatsAppLink('chat')}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full py-4 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    className="py-4 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                   >
                     <MessageCircle size={20} /> Conversar
                   </a>
-                  <button 
+                  <button
+                    onClick={() => handleScheduleVisit()}
+                    className="py-4 bg-emerald-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20"
+                  >
+                    <Calendar size={20} /> Agendar Visita
+                  </button>
+                  <button
                     onClick={() => setStep(1)}
                     disabled={property.status !== 'available'}
-                    className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Home size={20} /> Alugar Agora
                   </button>
@@ -264,6 +345,23 @@ export default function PublicPropertyFlow() {
                 </div>
               )}
             </div>
+
+            {/* Map preview */}
+            {property.address && (
+              <div className="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                  <MapPin size={18} className="text-primary" />
+                  <span className="font-bold text-slate-800 dark:text-white text-sm">Localização</span>
+                </div>
+                <iframe
+                  width="100%"
+                  height="200"
+                  frameBorder="0"
+                  scrolling="no"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(property.address)}&output=embed`}
+                />
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -271,10 +369,10 @@ export default function PublicPropertyFlow() {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100 dark:border-slate-700">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                {step === 1 && <><UserIcon size={24} className="text-primary"/> Dados Pessoais</>}
-                {step === 2 && <><Calendar size={24} className="text-primary"/> Prazos</>}
-                {step === 3 && <><CreditCard size={24} className="text-primary"/> Pagamento</>}
-                {step === 4 && <><CheckCircle2 size={24} className="text-primary"/> Revisão</>}
+                {step === 1 && <><UserIcon size={24} className="text-primary" /> Dados Pessoais</>}
+                {step === 2 && <><Calendar size={24} className="text-primary" /> Prazos</>}
+                {step === 3 && <><CreditCard size={24} className="text-primary" /> Pagamento</>}
+                {step === 4 && <><CheckCircle2 size={24} className="text-primary" /> Revisão</>}
               </h2>
               <div className="text-sm font-bold text-slate-400">Passo {step} de 4</div>
             </div>
@@ -347,7 +445,7 @@ export default function PublicPropertyFlow() {
                   <p><strong>Vencimento:</strong> Dia {dueDay}</p>
                   <p><strong>Pagamento:</strong> {paymentMethod === 'pix' ? 'PIX' : paymentMethod}</p>
                 </div>
-                <a 
+                <a
                   href={getWhatsAppLink('rent')}
                   target="_blank"
                   rel="noreferrer"
@@ -359,15 +457,15 @@ export default function PublicPropertyFlow() {
             )}
 
             <div className="mt-8 flex justify-between pt-6 border-t border-slate-100 dark:border-slate-700">
-              <button 
-                onClick={() => setStep(step - 1)} 
+              <button
+                onClick={() => setStep(step - 1)}
                 className="px-6 py-3 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
               >
                 <ChevronLeft size={20} /> Voltar
               </button>
               {step < 4 && (
-                <button 
-                  onClick={() => setStep(step + 1)} 
+                <button
+                  onClick={() => setStep(step + 1)}
                   disabled={(step === 1 && (!residents[0].name || !residents[0].cpf || !residents[0].phone)) || (step === 3 && !paymentMethod)}
                   className="px-8 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50 hover:bg-primary/90 transition-colors"
                 >

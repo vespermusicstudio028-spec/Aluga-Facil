@@ -27,6 +27,16 @@ export interface Property {
   status: PropertyStatus;
   groupName?: string;
   photos: string[];
+  bedrooms?: number;
+  bathrooms?: number;
+  parkingSpaces?: number;
+  area?: number;
+  iptuValue?: number;
+  condoValue?: number;
+  zipCode?: string;
+  lat?: number;
+  lng?: number;
+  floorPlanUrl?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -129,5 +139,74 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
+  createdAt: string;
+}
+
+export type EventType = 'visit' | 'inspection' | 'maintenance' | 'renewal';
+export type EventStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface CalendarEvent {
+  id: string;
+  ownerId: string;
+  title: string;
+  type: EventType;
+  date: string;
+  endDate?: string;
+  propertyId?: string;
+  tenantId?: string;
+  notes?: string;
+  status: EventStatus;
+  createdAt: string;
+}
+
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TicketStatus = 'open' | 'in_progress' | 'waiting_approval' | 'resolved' | 'cancelled';
+
+export interface MaintenanceTicket {
+  id: string;
+  ownerId: string;
+  propertyId: string;
+  tenantId?: string;
+  title: string;
+  description: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  estimatedCost?: number;
+  photos: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DocumentCategory =
+  | 'escritura'
+  | 'iptu'
+  | 'contrato'
+  | 'vistoria'
+  | 'rg'
+  | 'cpf'
+  | 'comprovante_renda'
+  | 'comprovante_residencia'
+  | 'outro';
+
+export interface VaultDocument {
+  id: string;
+  ownerId: string;
+  propertyId?: string;
+  tenantId?: string;
+  category: DocumentCategory;
+  title: string;
+  fileUrl: string;
+  fileType: string;
+  createdAt: string;
+}
+
+export interface TenantRating {
+  id: string;
+  ownerId: string;
+  tenantId: string;
+  punctuality: number;   // 1-5
+  conservation: number;  // 1-5
+  communication: number; // 1-5
+  notes?: string;
   createdAt: string;
 }

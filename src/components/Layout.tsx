@@ -24,7 +24,9 @@ import {
   Crown,
   AlertCircle,
   Clock,
-  Lock
+  Lock,
+  Calendar as CalendarIcon,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -188,6 +190,8 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Building2 size={20} />, label: 'Imóveis', path: '/properties' },
     { icon: <Users size={20} />, label: 'Inquilinos', path: '/tenants' },
+    { icon: <CalendarIcon size={20} />, label: 'Agenda', path: '/agenda' },
+    { icon: <Wrench size={20} />, label: 'Manutenções', path: '/maintenance' },
     { icon: <MessageSquare size={20} />, label: 'Chat', path: '/chat' },
     { icon: <FileText size={20} />, label: 'Contratos', path: '/contracts' },
     { icon: <CreditCard size={20} />, label: 'Pagamentos', path: '/payments' },

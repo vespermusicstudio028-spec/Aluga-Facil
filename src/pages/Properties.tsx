@@ -23,9 +23,11 @@ import {
 import { supabase } from '../lib/supabase';
 import { uploadBase64Image } from '../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
+import { useViaCEP } from '../hooks/useViaCEP';
 import { Property, PropertyStatus } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
+import DocumentVault from '../components/DocumentVault';
 
 interface VilaHouse {
   id: string;
@@ -111,6 +113,7 @@ const PropertyPhotoCarousel = ({ photos, altText }: { photos: string[], altText:
 };
 export default function Properties() {
   const { user } = useAuth();
+  const { fetchAddress, loading: cepLoading } = useViaCEP();
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -132,7 +135,14 @@ export default function Properties() {
     rentValue: '',
     status: 'available' as PropertyStatus,
     groupName: '',
-    photos: [] as string[]
+    photos: [] as string[],
+    zipCode: '',
+    bedrooms: '',
+    bathrooms: '',
+    parkingSpaces: '',
+    area: '',
+    iptuValue: '',
+    condoValue: ''
   });
 
   useEffect(() => {
@@ -161,6 +171,14 @@ export default function Properties() {
         status: p.status,
         groupName: p.group_name,
         photos: p.photos || [],
+        zipCode: p.zip_code,
+        bedrooms: p.bedrooms,
+        bathrooms: p.bathrooms,
+        parkingSpaces: p.parking_spaces,
+        area: p.area,
+        iptuValue: p.iptu_value,
+        condoValue: p.condo_value,
+        floorPlanUrl: p.floor_plan_url,
         createdAt: p.created_at,
         updatedAt: p.updated_at
       })));
@@ -181,11 +199,21 @@ export default function Properties() {
         rentValue: property.rentValue.toString(),
         status: property.status,
         groupName: property.groupName || '',
-        photos: property.photos || []
+        photos: property.photos || [],
+        zipCode: property.zipCode || '',
+        bedrooms: property.bedrooms?.toString() || '',
+        bathrooms: property.bathrooms?.toString() || '',
+        parkingSpaces: property.parkingSpaces?.toString() || '',
+        area: property.area?.toString() || '',
+        iptuValue: property.iptuValue?.toString() || '',
+        condoValue: property.condoValue?.toString() || ''
       });
     } else {
       setEditingProperty(null);
-      setFormData({ name: '', address: '', type: 'Casa', rentValue: '', status: 'available', groupName: '', photos: [] });
+      setFormData({
+        name: '', address: '', type: 'Casa', rentValue: '', status: 'available', groupName: '', photos: [],
+        zipCode: '', bedrooms: '', bathrooms: '', parkingSpaces: '', area: '', iptuValue: '', condoValue: ''
+      });
       setVilaHouses([{ id: Date.now().toString(), number: '', rentValue: '', status: 'available', photos: [] }]);
     }
     setIsModalOpen(true);
@@ -327,10 +355,17 @@ export default function Properties() {
           name: formData.name,
           address: formData.address,
           type: formData.type,
-          rent_value: Number(formData.rentValue),
+          rent_value: Number(formData.rentValue) || 0,
           status: formData.status,
           group_name: formData.groupName,
           photos: photoUrls,
+          zip_code: formData.zipCode,
+          bedrooms: Number(formData.bedrooms) || 0,
+          bathrooms: Number(formData.bathrooms) || 0,
+          parking_spaces: Number(formData.parkingSpaces) || 0,
+          area: Number(formData.area) || 0,
+          iptu_value: Number(formData.iptuValue) || 0,
+          condo_value: Number(formData.condoValue) || 0,
           updated_at: new Date().toISOString()
         };
         if (editingProperty) {
@@ -405,6 +440,22 @@ export default function Properties() {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index)
     }));
+  };
+
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let cep = e.target.value.replace(/\D/g, '');
+    if (cep.length > 8) cep = cep.slice(0, 8);
+    setFormData(prev => ({ ...prev, zipCode: cep }));
+
+    if (cep.length === 8) {
+      const addr = await fetchAddress(cep);
+      if (addr) {
+        setFormData(prev => ({
+          ...prev,
+          address: `${addr.logradouro}, , ${addr.bairro}, ${addr.localidade} - ${addr.uf}`
+        }));
+      }
+    }
   };
 
   const filteredProperties = properties.filter(p => {
@@ -699,17 +750,46 @@ export default function Properties() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Endereço Completo</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="Rua, Número, Bairro, Cidade"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">CEP</label>
+                    <input
+                      type="text"
+                      placeholder="00000000"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                      value={formData.zipCode}
+                      onChange={handleCepChange}
+                      maxLength={8}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Endereço Completo {cepLoading && <span className="text-xs text-primary animate-pulse">(Buscando...)</span>}
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="Rua, Número, Bairro, Cidade"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    />
+                  </div>
                 </div>
+
+                {formData.address && formData.type !== 'Vila' && (
+                  <div className="w-full h-48 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      scrolling="no"
+                      marginHeight={0}
+                      marginWidth={0}
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.address)}&output=embed`}
+                    ></iframe>
+                  </div>
+                )}
 
                 {formData.type !== 'Vila' && (
                   <div>
@@ -724,8 +804,8 @@ export default function Properties() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipo</label>
                     <select
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
@@ -740,19 +820,89 @@ export default function Properties() {
                       {!editingProperty && <option>Vila</option>}
                     </select>
                   </div>
-
                   {formData.type !== 'Vila' && (
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor Aluguel</label>
-                      <input
-                        required
-                        type="number"
-                        placeholder="R$ 0.00"
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
-                        value={formData.rentValue}
-                        onChange={(e) => setFormData({ ...formData, rentValue: e.target.value })}
-                      />
-                    </div>
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor Aluguel</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">R$</span>
+                          <input
+                            required
+                            type="number"
+                            placeholder="0.00"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                            value={formData.rentValue}
+                            onChange={(e) => setFormData({ ...formData, rentValue: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor IPTU (Mês)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">R$</span>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                            value={formData.iptuValue}
+                            onChange={(e) => setFormData({ ...formData, iptuValue: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor Condomínio</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">R$</span>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                            value={formData.condoValue}
+                            onChange={(e) => setFormData({ ...formData, condoValue: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quartos</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                          value={formData.bedrooms}
+                          onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Banheiros</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                          value={formData.bathrooms}
+                          onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Vagas</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                          value={formData.parkingSpaces}
+                          onChange={(e) => setFormData({ ...formData, parkingSpaces: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Área (m²)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                          value={formData.area}
+                          onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -869,6 +1019,11 @@ export default function Properties() {
                       <option value="maintenance">Manutenção</option>
                     </select>
                   </div>
+                )}
+
+                {/* Document Vault — visible when editing */}
+                {editingProperty && (
+                  <DocumentVault propertyId={editingProperty.id} context="property" />
                 )}
 
                 <div className="pt-4 flex gap-4">

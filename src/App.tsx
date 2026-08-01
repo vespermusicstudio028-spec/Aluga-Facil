@@ -42,6 +42,8 @@ import ContractDetails from './pages/ContractDetails';
 import Payments from './pages/Payments';
 import Receipts from './pages/Receipts';
 import Reports from './pages/Reports';
+import Agenda from './pages/Agenda';
+import Maintenance from './pages/Maintenance';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import TenantDashboard from './pages/TenantDashboard';
@@ -96,6 +98,8 @@ function AppRoutes() {
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
       <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+      <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+      <Route path="/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/plan" element={<ProtectedRoute><MyPlan /></ProtectedRoute>} />
