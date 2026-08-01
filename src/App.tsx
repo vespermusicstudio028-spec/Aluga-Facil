@@ -28,6 +28,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 }
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import CookieBanner from './components/CookieBanner';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -49,6 +50,8 @@ import MyPlan from './pages/MyPlan';
 import PublicPropertyFlow from './pages/PublicPropertyFlow';
 import AuthCallback from './pages/AuthCallback';
 import Chat from './pages/Chat';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
 
 const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
@@ -79,6 +82,8 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/tenant-dashboard" element={<TenantDashboard />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+      <Route path="/termos-de-uso" element={<TermsOfUse />} />
 
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
@@ -107,6 +112,7 @@ export default function App() {
         <AuthProvider>
           <Router>
             <AppRoutes />
+            <CookieBanner />
           </Router>
         </AuthProvider>
       </ThemeProvider>

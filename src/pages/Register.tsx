@@ -25,6 +25,8 @@ export default function Register() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const { user } = useAuth();
 
   React.useEffect(() => {
@@ -54,6 +56,10 @@ export default function Register() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!agreedTerms || !agreedPrivacy) {
+      setError('É obrigatório aceitar nossos Termos de Uso e Política de Privacidade para criar uma conta.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
@@ -69,7 +75,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-6 py-12">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 md:p-10"
@@ -90,11 +96,40 @@ export default function Register() {
         )}
 
         <div className="space-y-6">
+          <div className="flex flex-col gap-3 mb-6 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="mt-1 flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={agreedTerms}
+                  onChange={(e) => setAgreedTerms(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700"
+                />
+              </div>
+              <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">
+                Eu li e concordo com os <Link to="/termos-de-uso" target="_blank" className="text-primary font-semibold hover:underline">Termos de Uso</Link>.
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="mt-1 flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={agreedPrivacy}
+                  onChange={(e) => setAgreedPrivacy(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700"
+                />
+              </div>
+              <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">
+                Eu li e concordo com a <Link to="/politica-de-privacidade" target="_blank" className="text-primary font-semibold hover:underline">Política de Privacidade</Link>.
+              </span>
+            </label>
+          </div>
+
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            disabled={isLoading}
-            className="w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+            disabled={isLoading || (!agreedTerms || !agreedPrivacy)}
+            className="w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

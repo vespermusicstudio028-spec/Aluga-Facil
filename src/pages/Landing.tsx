@@ -70,9 +70,9 @@ export default function Landing() {
             </Link>
           </div>
         </motion.div>
-        
+
         {/* Mockup Preview */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.8 }}
@@ -174,14 +174,15 @@ export default function Landing() {
           <div>
             <h4 className="text-white font-bold mb-6">Legal</h4>
             <ul className="space-y-4">
-              <li><a href="#" className="hover:text-white">Termos de Uso</a></li>
-              <li><a href="#" className="hover:text-white">Privacidade</a></li>
-              <li><a href="#" className="hover:text-white">LGPD</a></li>
+              <li><Link to="/termos-de-uso" className="hover:text-white transition-colors">Termos de Uso</Link></li>
+              <li><Link to="/politica-de-privacidade" className="hover:text-white transition-colors">Política de Privacidade</Link></li>
+              <li><a href="mailto:privacidade@alugafacil.com.br" className="hover:text-white transition-colors">Contato LGPD</a></li>
             </ul>
           </div>
         </div>
-        <div className="container mx-auto px-6 pt-12 border-t border-slate-800 text-center">
-          <p>&copy; 2026 AlugaFácil. Todos os direitos reservados.</p>
+        <div className="container mx-auto px-6 pt-12 border-t border-slate-800 text-center flex flex-col md:flex-row justify-between items-center gap-4">
+          <p>&copy; {new Date().getFullYear()} AlugaFácil. Todos os direitos reservados.</p>
+          <p className="text-sm">Versão 1.2.0 • Protegido por criptografia 256-bit</p>
         </div>
       </footer>
     </div>

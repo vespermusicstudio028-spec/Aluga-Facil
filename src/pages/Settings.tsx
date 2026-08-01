@@ -7,7 +7,8 @@ import {
   CreditCard,
   Moon,
   Crown,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -97,6 +98,15 @@ export default function Settings() {
                 <div className="absolute top-1 left-7 w-6 h-6 bg-white rounded-full" />
               </button>
             </div>
+            <button
+              onClick={() => navigate('/minha-privacidade')}
+              className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
+            >
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
+                <ShieldCheck size={20} className="text-primary" /> Central de Privacidade LGPD
+              </div>
+              <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+            </button>
           </div>
         </div>
 
