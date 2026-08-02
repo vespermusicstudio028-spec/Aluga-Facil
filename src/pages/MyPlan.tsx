@@ -15,7 +15,6 @@ export default function MyPlan() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [nextExp, setNextExp] = useState<Date | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -131,23 +130,6 @@ export default function MyPlan() {
       window.open(link, '_blank');
     } else {
       alert('O link de pagamento via Mercado Pago ainda não foi configurado pelo Administrador.');
-    }
-  };
-
-  const handleConfirmPayment = async (inv: any) => {
-    if (!window.confirm("Confirmar que você já realizou o pagamento desta fatura? O seu sistema será desbloqueado automaticamente.")) return;
-    setConfirming(inv.id);
-    try {
-      // Marca a fatura como em análise para revisão administrativa
-      await supabase.from('plan_invoices').update({ status: 'under_review' }).eq('id', inv.id);
-
-      alert("Recebemos sua solicitação! O pagamento está em análise técnica pela equipe e será liberado quando identificado no sistema.");
-      window.location.reload();
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao confirmar pagamento.");
-    } finally {
-      setConfirming(null);
     }
   };
 
@@ -338,14 +320,6 @@ export default function MyPlan() {
                               >
                                 Pagar
                               </button>
-                              <button
-                                onClick={() => handleConfirmPayment(inv)}
-                                disabled={confirming === inv.id}
-                                className="px-4 py-2 bg-emerald-500 text-white text-sm font-bold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center gap-2"
-                              >
-                                {confirming === inv.id ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
-                                Já paguei
-                              </button>
                             </div>
                           )}
                         </td>
@@ -363,7 +337,7 @@ export default function MyPlan() {
             <h4 className="font-bold text-blue-900 dark:text-blue-300">Pagamento Seguro via Mercado Pago</h4>
             <p className="text-sm text-blue-700 dark:text-blue-400 mt-1 max-w-2xl">
               Ao clicar em pagar, você será redirecionado para o ambiente seguro do Mercado Pago.
-              Após realizar o pagamento, clique em <strong>"Já paguei"</strong> para que nosso sistema restaure o seu acesso instantaneamente.
+              Após realizar o pagamento, seu plano será renovado automaticamente de forma segura pela instituição parceira.
             </p>
           </div>
           <img src="https://logospng.org/download/mercado-pago/logo-mercado-pago-icone-1024.png" alt="Mercado Pago" className="w-16 h-16 object-contain mix-blend-multiply dark:mix-blend-normal hidden sm:block" />
