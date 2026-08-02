@@ -131,16 +131,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileData.plan = 'trial';
           }
         }
-        // ─────────────────────────────────────────────────────────────────
+        // ── AUTO-UPGRADE SE JÁ PAGOU ────────────────────────────────────
+        // Se o plano ainda é 'trial' mas o usuário tem uma fatura PAGA,
+        // atualiza o plano automaticamente para o plano correto
+        if (profileData.plan === 'trial' && profileData.role !== 'admin') {
+          const { data: paidInvoices } = await supabase
+            .from('plan_invoices')
+            .select('plan_id, due_date')
+            .eq('user_id', uid)
+            .eq('status', 'paid')
+            .order('due_date', { ascending: false })
+            .limit(1);
 
-        // Bloqueia automaticamente no banco se plano expirou
-        if (profileData.plan_expires_at && profileData.role !== 'admin') {
-          const expDate = new Date(profileData.plan_expires_at);
-          if (expDate < new Date() && profileData.status !== 'blocked') {
-            await supabase.from('profiles').update({ status: 'blocked' }).eq('id', uid);
-            profileData.status = 'blocked';
+          if (paidInvoices && paidInvoices.length > 0) {
+            const paidPlan = paidInvoices[0].plan_id as string;
+            const validPlans = ['basic', 'professional', 'premium'];
+            if (validPlans.includes(paidPlan)) {
+              // Calcula nova expiração: +1 mês da data da fatura
+              const newExpiry = new Date(paidInvoices[0].due_date);
+              newExpiry.setMonth(newExpiry.getMonth() + 1);
+              await supabase.from('profiles').update({
+                plan: paidPlan,
+                status: 'active',
+                plan_expires_at: newExpiry.toISOString()
+              }).eq('id', uid);
+              profileData.plan = paidPlan;
+              profileData.status = 'active';
+              profileData.plan_expires_at = newExpiry.toISOString();
+            }
           }
         }
+        // ─────────────────────────────────────────────────────────────────
 
         computeSubscriptionStatus(profileData.plan_expires_at);
 
