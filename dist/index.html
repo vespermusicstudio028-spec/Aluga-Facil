@@ -1,24 +1,40 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="manifest" href="/manifest.json" />
 
-    <!-- Favicon - Logo AlugaFácil -->
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="/manifest.json" />
 
-    <!-- SEO -->
-    <meta name="description" content="AlugaFácil - Gestão inteligente de aluguéis. Controle contratos, inquilinos e pagamentos em um só lugar." />
-    <meta name="theme-color" content="#1a3a5c" />
+  <!-- Favicon - Logo AlugaFácil -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
 
-    <title>AlugaFácil - Gestão Inteligente de Aluguéis</title>
-    <script type="module" crossorigin src="/assets/index-Cy8aPW67.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-C4nPnZdg.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+  <!-- SEO -->
+  <meta name="description"
+    content="AlugaFácil - Gestão inteligente de aluguéis. Controle contratos, inquilinos e pagamentos em um só lugar." />
+  <meta name="theme-color" content="#1a3a5c" />
+
+  <title>AlugaFácil - Gestão Inteligente de Aluguéis</title>
+  <script type="module" crossorigin src="/assets/index-C05SYHLl.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DrSkcHoH.css">
+<link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+
+<body>
+  <div id="root"></div>
+  <!-- Force SW update: unregister old service workers & clear stale caches -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (var r of registrations) { r.update(); }
+      });
+      caches.keys().then(function (names) {
+        for (var name of names) {
+          if (!name.includes('v2026')) caches.delete(name);
+        }
+      });
+    }
+  </script>
+</body>
+
 </html>
-
