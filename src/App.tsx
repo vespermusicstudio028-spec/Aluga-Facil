@@ -30,6 +30,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import CookieBanner from './components/CookieBanner';
 import PWAPrompt from './components/PWAPrompt';
+import { FeatureProvider } from './features/featureContext';
+import { UpgradeModal } from './features/components/UpgradeModal';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -40,6 +42,7 @@ import Tenants from './pages/Tenants';
 import NewTenantFlow from './pages/NewTenantFlow';
 import Contracts from './pages/Contracts';
 import ContractDetails from './pages/ContractDetails';
+import RentalHistory from './pages/RentalHistory';
 import Payments from './pages/Payments';
 import Receipts from './pages/Receipts';
 import Reports from './pages/Reports';
@@ -96,6 +99,7 @@ function AppRoutes() {
       <Route path="/tenants/edit/:id" element={<ProtectedRoute><NewTenantFlow /></ProtectedRoute>} />
       <Route path="/contracts" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
       <Route path="/contracts/:id" element={<ProtectedRoute><ContractDetails /></ProtectedRoute>} />
+      <Route path="/history" element={<ProtectedRoute><RentalHistory /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
       <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
@@ -115,11 +119,14 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <Router>
-            <AppRoutes />
-            <CookieBanner />
-            <PWAPrompt />
-          </Router>
+          <FeatureProvider>
+            <Router>
+              <AppRoutes />
+              <CookieBanner />
+              <PWAPrompt />
+              <UpgradeModal />
+            </Router>
+          </FeatureProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

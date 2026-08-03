@@ -77,8 +77,24 @@ export interface Tenant {
   ownerSignature?: string;
   contractAccepted?: boolean;
   contractPdf?: string;
+  status?: 'active' | 'inactive' | 'ex_tenant';
+  leaveDate?: string;
+  entryDate?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface RentalHistory {
+  id: string;
+  ownerId: string;
+  propertyId?: string;
+  tenantId?: string;
+  contractId?: string;
+  startDate: string;
+  leaveDate: string;
+  reason: string;
+  notes?: string;
+  createdAt: string;
 }
 
 export type ContractStatus = 'pending' | 'signed_tenant' | 'signed_all' | 'active' | 'closed';

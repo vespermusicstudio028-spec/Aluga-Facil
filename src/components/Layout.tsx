@@ -26,7 +26,8 @@ import {
   Clock,
   Lock,
   Calendar as CalendarIcon,
-  Wrench
+  Wrench,
+  History
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -35,6 +36,8 @@ import { supabase } from '../lib/supabase';
 import { Notification } from '../types';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { FeatureGuard } from '../features/components/FeatureGuard';
+import { Feature } from '../features/permissions';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -190,13 +193,14 @@ export default function Layout({ children }: LayoutProps) {
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Building2 size={20} />, label: 'Imóveis', path: '/properties' },
     { icon: <Users size={20} />, label: 'Inquilinos', path: '/tenants' },
-    { icon: <CalendarIcon size={20} />, label: 'Agenda', path: '/agenda' },
-    { icon: <Wrench size={20} />, label: 'Manutenções', path: '/maintenance' },
+    { icon: <CalendarIcon size={20} />, label: 'Agenda', path: '/agenda', feature: Feature.AGENDA },
+    { icon: <Wrench size={20} />, label: 'Manutenções', path: '/maintenance', feature: Feature.HELPDESK },
     { icon: <MessageSquare size={20} />, label: 'Chat', path: '/chat' },
-    { icon: <FileText size={20} />, label: 'Contratos', path: '/contracts' },
-    { icon: <CreditCard size={20} />, label: 'Pagamentos', path: '/payments' },
-    { icon: <Receipt size={20} />, label: 'Comprovantes', path: '/receipts' },
-    { icon: <BarChart3 size={20} />, label: 'Relatórios', path: '/reports' },
+    { icon: <FileText size={20} />, label: 'Contratos', path: '/contracts', feature: Feature.CONTRACTS },
+    { icon: <CreditCard size={20} />, label: 'Pagamentos', path: '/payments', feature: Feature.FINANCIAL },
+    { icon: <Receipt size={20} />, label: 'Comprovantes', path: '/receipts', feature: Feature.FINANCIAL },
+    { icon: <BarChart3 size={20} />, label: 'Relatórios', path: '/reports', feature: Feature.REPORTS_BASIC },
+    { icon: <History size={20} />, label: 'Histórico', path: '/history' },
   ];
 
   let secondaryItems = [
@@ -210,11 +214,11 @@ export default function Layout({ children }: LayoutProps) {
     (user?.role === 'owner' && user?.status === 'blocked') ||
     (user?.role === 'owner' && !isSubscriptionActive);
 
+  // O menu nunca deve ser escondido baseado em tranca (Lock), 
+  // exceto se for admin (o que não entra aqui).
+  // Mantenho o bloqueio do main content, mas o menu exibe tudo.
   if (isSystemLocked) {
-    menuItems = [];
-    secondaryItems = [
-      { icon: <Crown size={20} />, label: 'Meu Plano', path: '/plan' }
-    ];
+    // Menu continua mostrando tudo, o FeatureGuard bloqueará navegações, mas a página inicial já trava o conteúdo
   }
 
   if (user?.role === 'admin') {
@@ -259,24 +263,34 @@ export default function Layout({ children }: LayoutProps) {
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-4">Menu Principal</p>
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
-                ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-            >
-              {item.icon}
-              <span className="font-medium flex-1">{item.label}</span>
-              {item.path === '/chat' && chatUnread > 0 && (
-                <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                  {chatUnread > 9 ? '9+' : chatUnread}
-                </span>
-              )}
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            const linkContent = (
+              <Link
+                to={item.path}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${location.pathname === item.path
+                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+              >
+                {item.icon}
+                <span className="font-medium flex-1">{item.label}</span>
+                {item.path === '/chat' && chatUnread > 0 && (
+                  <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                    {chatUnread > 9 ? '9+' : chatUnread}
+                  </span>
+                )}
+              </Link>
+            );
+            return (
+              <div key={item.path}>
+                {item.feature ? (
+                  <FeatureGuard feature={item.feature}>{linkContent}</FeatureGuard>
+                ) : (
+                  linkContent
+                )}
+              </div>
+            );
+          })}
 
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
           {secondaryItems.map((item) => (
@@ -330,25 +344,35 @@ export default function Layout({ children }: LayoutProps) {
                 <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500"><X size={24} /></button>
               </div>
               <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-                {menuItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
-                      ? 'bg-primary text-white'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
-                  >
-                    {item.icon}
-                    <span className="font-medium text-lg flex-1">{item.label}</span>
-                    {item.path === '/chat' && chatUnread > 0 && (
-                      <span className="bg-red-500 text-white text-[12px] font-bold px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">
-                        {chatUnread > 9 ? '9+' : chatUnread}
-                      </span>
-                    )}
-                  </Link>
-                ))}
+                {menuItems.map((item) => {
+                  const linkContent = (
+                    <Link
+                      to={item.path}
+                      onClick={() => setIsSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${location.pathname === item.path
+                        ? 'bg-primary text-white'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      {item.icon}
+                      <span className="font-medium text-lg flex-1">{item.label}</span>
+                      {item.path === '/chat' && chatUnread > 0 && (
+                        <span className="bg-red-500 text-white text-[12px] font-bold px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                          {chatUnread > 9 ? '9+' : chatUnread}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                  return (
+                    <div key={item.path}>
+                      {item.feature ? (
+                        <FeatureGuard feature={item.feature}>{linkContent}</FeatureGuard>
+                      ) : (
+                        linkContent
+                      )}
+                    </div>
+                  );
+                })}
 
                 <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-8">Preferências</p>
                 {secondaryItems.map((item) => (
@@ -548,25 +572,34 @@ export default function Layout({ children }: LayoutProps) {
           <div className="max-w-7xl mx-auto h-full">
             {/* BANNER DE TRIAL ATIVO */}
             {!isSystemLocked && user?.role !== 'admin' && trialDaysLeft !== null && (
-              <div className="mb-6 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 text-lg font-black">
+              <div className={`mb-6 p-4 rounded-2xl border flex items-center gap-4 transition-colors ${trialDaysLeft <= 1
+                ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                : trialDaysLeft <= 3
+                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800'
+                  : 'bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700'
+                }`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg font-black text-white ${trialDaysLeft <= 1 ? 'bg-red-500' : trialDaysLeft <= 3 ? 'bg-amber-500' : 'bg-slate-500'
+                  }`}>
                   {trialDaysLeft}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-emerald-800 dark:text-emerald-300">
+                  <h4 className={`font-bold ${trialDaysLeft <= 1 ? 'text-red-800 dark:text-red-300' : trialDaysLeft <= 3 ? 'text-amber-800 dark:text-amber-300' : 'text-slate-800 dark:text-slate-300'
+                    }`}>
                     {trialDaysLeft === 0
                       ? '⚠️ Seu teste gratuito expira HOJE!'
                       : trialDaysLeft === 1
                         ? '⚠️ Último dia do seu teste gratuito!'
-                        : `🎉 Teste grátis: ${trialDaysLeft} dias restantes`}
+                        : `Teste grátis: ${trialDaysLeft} dias restantes`}
                   </h4>
-                  <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  <p className={`text-sm mt-0.5 ${trialDaysLeft <= 1 ? 'text-red-700 dark:text-red-400' : trialDaysLeft <= 3 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'
+                    }`}>
                     {trialDaysLeft <= 1
                       ? 'Assine agora para continuar usando o AlugaFácil sem interrupções.'
                       : 'Aproveite todas as funcionalidades. Assine antes de acabar o período!'}
                   </p>
                 </div>
-                <Link to="/plan" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors whitespace-nowrap shrink-0">
+                <Link to="/plan" className={`px-4 py-2 text-white rounded-xl font-bold text-sm transition-colors whitespace-nowrap shrink-0 ${trialDaysLeft <= 1 ? 'bg-red-600 hover:bg-red-700' : trialDaysLeft <= 3 ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-800 hover:bg-slate-900 dark:bg-primary dark:hover:bg-primary/90'
+                  }`}>
                   Ver Planos
                 </Link>
               </div>
@@ -608,11 +641,11 @@ export default function Layout({ children }: LayoutProps) {
                 <p className="text-lg text-slate-500 dark:text-slate-400 max-w-lg mb-8 leading-relaxed">
                   {user?.status === 'blocked'
                     ? 'Seu período de uso expirou. Renove seu plano para voltar a ter acesso completo ao sistema.'
-                    : 'Seu teste gratuito de 5 dias chegou ao fim. Assine um plano para continuar gerenciando seus imóveis e inquilinos.'}
+                    : 'Seu período de teste terminou. Escolha um plano para continuar utilizando o Aluga Fácil.'}
                 </p>
                 <Link to="/plan" className="bg-primary text-white font-bold py-4 px-10 rounded-2xl hover:opacity-90 transition-opacity shadow-xl shadow-primary/30 text-lg flex items-center gap-3">
                   <Crown size={24} />
-                  {user?.status === 'blocked' ? 'Renovar Meu Plano' : 'Assinar Agora'}
+                  {user?.status === 'blocked' ? 'Renovar Meu Plano' : 'Ver Planos de Assinatura'}
                 </Link>
                 <p className="text-sm text-slate-400 mt-6">Só a página <strong>Meu Plano</strong> está disponível até você assinar.</p>
               </div>

@@ -19,7 +19,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TRIAL_DAYS = 5;
+const TRIAL_DAYS = 7;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -112,6 +112,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             plan: 'trial'
           }).eq('id', uid);
 
+          // Update saas_subscriptions
+          const { data: trialPlan } = await supabase.from('saas_plans').select('id').eq('name', 'trial').single();
+          if (trialPlan) {
+            await supabase.from('saas_subscriptions').upsert({
+              user_id: uid,
+              plan_id: trialPlan.id,
+              status: 'active',
+              expires_at: trialEndISO
+            });
+          }
+
           profileData.plan_expires_at = trialEndISO;
           profileData.status = 'active';
           profileData.plan = 'trial';
@@ -155,7 +166,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status: 'active',
                 plan_expires_at: newExpiry.toISOString()
               }).eq('id', uid);
-              profileData.plan = paidPlan;
+
+              // Map to saas_subscriptions
+              const planMapping: Record<string, string> = { pro: 'professional', professional: 'professional', basic: 'basic', premium: 'premium' };
+              const mappedPlan = planMapping[paidPlan] || paidPlan;
+
+              const { data: realPlan } = await supabase.from('saas_plans').select('id').eq('name', mappedPlan).single();
+              if (realPlan) {
+                await supabase.from('saas_subscriptions').upsert({
+                  user_id: uid,
+                  plan_id: realPlan.id,
+                  status: 'active',
+                  expires_at: newExpiry.toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              }
+
+              profileData.plan = mappedPlan;
               profileData.status = 'active';
               profileData.plan_expires_at = newExpiry.toISOString();
             }
@@ -198,6 +225,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           plan_expires_at: trialEndISO,
           created_at: createdAt
         };
+
+        const { data: trialPlan } = await supabase.from('saas_plans').select('id').eq('name', 'trial').single();
+        if (trialPlan) {
+          await supabase.from('saas_subscriptions').insert({
+            user_id: uid,
+            plan_id: trialPlan.id,
+            status: 'active',
+            expires_at: trialEndISO,
+            created_at: createdAt
+          });
+        }
 
         const { error: insertError } = await supabase.from('profiles').insert([newProfile]);
 

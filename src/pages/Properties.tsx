@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Layout from '../components/Layout';
 import {
   Plus,
@@ -17,8 +17,9 @@ import {
   Edit2,
   Users,
   Share2,
-
-  ChevronLeft, ChevronRight
+  LogOut,
+  ChevronLeft, ChevronRight,
+  Phone
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { uploadBase64Image } from '../lib/storage';
@@ -28,6 +29,9 @@ import { Property, PropertyStatus } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import DocumentVault from '../components/DocumentVault';
+import { TerminateRentalModal } from '../components/TerminateRentalModal';
+import { LinkTenantModal } from '../components/LinkTenantModal';
+import { Tenant, Contract } from '../types';
 
 interface VilaHouse {
   id: string;
@@ -124,6 +128,25 @@ export default function Properties() {
   const [statusFilter, setStatusFilter] = useState<PropertyStatus | 'all'>('all');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
+  const [propertyToTerminate, setPropertyToTerminate] = useState<Property | null>(null);
+  const [tenantToTerminate, setTenantToTerminate] = useState<Tenant | null>(null);
+  const [contractToTerminate, setContractToTerminate] = useState<Contract | null>(null);
+
+  const [propertyToLink, setPropertyToLink] = useState<Property | null>(null);
+  // Cache: property id → active tenant data (card display)
+  const [rentedTenantCache, setRentedTenantCache] = useState<Record<string, { name: string; phone: string; contractId?: string }>>({});
+  // Full tenant details loaded when modal opens for a rented property
+  const [modalTenantData, setModalTenantData] = useState<{
+    residents: Array<{ name: string; phone: string; email?: string; cpf?: string; isTitular?: boolean }>;
+    entryDate?: string;
+    rentValue?: number;
+    dueDay?: number;
+    endDate?: string;
+    contractNumber?: string;
+  } | null>(null);
+  // Whether modal is in view-only mode (rented property opened via 'Detalhes')
+  const [viewMode, setViewMode] = useState(false);
+
   const [vilaHouses, setVilaHouses] = useState<VilaHouse[]>([
     { id: Date.now().toString(), number: '', rentValue: '', status: 'available', photos: [] }
   ]);
@@ -189,7 +212,58 @@ export default function Properties() {
     }
   };
 
-  const handleOpenModal = (property?: Property) => {
+  // Load active tenant info for all rented properties (for card display)
+  const fetchRentedTenants = useCallback(async (props: Property[]) => {
+    const rented = props.filter(p => p.status === 'rented');
+    if (rented.length === 0) return;
+    const cache: Record<string, { name: string; phone: string; contractId?: string }> = {};
+    await Promise.all(rented.map(async (p) => {
+      const { data: tenants } = await supabase
+        .from('tenants').select('id, residents, property_id')
+        .eq('property_id', p.id).eq('status', 'active').limit(1);
+      if (tenants && tenants.length > 0) {
+        const t = tenants[0];
+        const titular = (t.residents || []).find((r: any) => r.isTitular);
+        const { data: contracts } = await supabase
+          .from('contracts').select('id')
+          .eq('property_id', p.id).neq('status', 'closed').limit(1);
+        cache[p.id] = {
+          name: titular?.name || 'Inquilino',
+          phone: titular?.phone || '',
+          contractId: contracts?.[0]?.id,
+        };
+      }
+    }));
+    setRentedTenantCache(cache);
+  }, []);
+
+  useEffect(() => {
+    if (properties.length > 0) fetchRentedTenants(properties);
+  }, [properties, fetchRentedTenants]);
+
+  const handleOpenTerminateModal = async (property: Property) => {
+    try {
+      const { data: tenants } = await supabase.from('tenants').select('*').eq('property_id', property.id).neq('status', 'inactive');
+      const tenant = tenants && tenants.length > 0 ? tenants[0] : null;
+
+      let contract = null;
+      if (tenant) {
+        const { data: contracts } = await supabase.from('contracts').select('*').eq('tenant_id', tenant.id).neq('status', 'closed');
+        contract = contracts && contracts.length > 0 ? contracts[0] : null;
+      }
+
+      setTenantToTerminate(tenant ? { ...tenant, ownerId: tenant.owner_id, propertyId: tenant.property_id } : null);
+      setContractToTerminate(contract ? { ...contract, monthlyValue: contract.monthly_value || 0 } : null);
+      setPropertyToTerminate(property);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao carregar dados do locatário.');
+    }
+  };
+
+  const handleOpenModal = (property?: Property, readOnly = false) => {
+    setModalTenantData(null); // reset
+    setViewMode(readOnly);
     if (property) {
       setEditingProperty(property);
       setFormData({
@@ -208,6 +282,37 @@ export default function Properties() {
         iptuValue: property.iptuValue?.toString() || '',
         condoValue: property.condoValue?.toString() || ''
       });
+      // If rented, fetch detailed tenant data
+      if (property.status === 'rented') {
+        supabase.from('tenants')
+          .select('residents, entry_date, due_day')
+          .eq('property_id', property.id)
+          .eq('owner_id', user?.uid)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(({ data: tenants, error: tErr }) => {
+            if (tErr) { console.error('tenant fetch:', tErr); }
+            const t = tenants?.[0];
+            supabase.from('contracts')
+              .select('monthly_value, due_day, end_date, contract_number')
+              .eq('property_id', property.id)
+              .eq('owner_id', user?.uid)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .then(({ data: contracts, error: cErr }) => {
+                if (cErr) { console.error('contract fetch:', cErr); }
+                const c = contracts?.[0];
+                setModalTenantData({
+                  residents: t?.residents || [],
+                  entryDate: t?.entry_date,
+                  rentValue: c?.monthly_value,
+                  dueDay: c?.due_day || t?.due_day,
+                  endDate: c?.end_date,
+                  contractNumber: c?.contract_number,
+                });
+              });
+          });
+      }
     } else {
       setEditingProperty(null);
       setFormData({
@@ -632,6 +737,22 @@ export default function Properties() {
                             >
                               <Edit2 size={16} className="text-primary" /> Editar
                             </button>
+                            {p.status === 'available' && (
+                              <button
+                                onClick={() => { setPropertyToLink(p); setActiveMenu(null); }}
+                                className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-secondary hover:bg-secondary/5 transition-colors"
+                              >
+                                <Users size={16} /> Vincular Inquilino
+                              </button>
+                            )}
+                            {p.status === 'rented' && (
+                              <button
+                                onClick={() => { handleOpenTerminateModal(p); setActiveMenu(null); }}
+                                className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                              >
+                                <LogOut size={16} /> Encerrar Locação
+                              </button>
+                            )}
                             <button
                               onClick={() => { handleDelete(p.id); setActiveMenu(null); }}
                               className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
@@ -649,13 +770,35 @@ export default function Properties() {
                   <span className="truncate">{p.address}</span>
                 </div>
                 <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Aluguel</p>
-                    <p className="text-lg font-bold text-primary dark:text-white">R$ {p.rentValue.toLocaleString()}</p>
-                  </div>
-                  <button className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    Detalhes
-                  </button>
+                  {p.status === 'rented' && rentedTenantCache[p.id] ? (
+                    <div className="flex-1 mr-4">
+                      <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Inquilino Atual</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{rentedTenantCache[p.id].name}</p>
+                      {rentedTenantCache[p.id].phone && (
+                        <p className="text-xs text-slate-500">{rentedTenantCache[p.id].phone}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Aluguel</p>
+                      <p className="text-lg font-bold text-primary dark:text-white">R$ {p.rentValue.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {p.status === 'available' ? (
+                    <button
+                      onClick={() => setPropertyToLink(p)}
+                      className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-opacity-90 transition-colors shadow-sm shadow-secondary/20"
+                    >
+                      <Users size={16} /> Vincular
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleOpenModal(p)}
+                      className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Detalhes
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -698,11 +841,84 @@ export default function Properties() {
             >
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  {editingProperty ? 'Editar Imóvel' : 'Novo Imóvel'}
+                  {viewMode ? 'Visualizar Imóvel' : editingProperty ? 'Editar Imóvel' : 'Novo Imóvel'}
                 </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={24} /></button>
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+
+                {editingProperty?.status === 'rented' && (
+                  <div className="border border-primary/20 rounded-2xl overflow-hidden mb-2">
+                    <div className="bg-primary px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-white/80" />
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">Inquilino(s) Atual</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { window.location.href = '/tenants'; }}
+                        className="text-xs font-bold text-white/80 hover:text-white underline transition-colors"
+                      >
+                        Ver todos →
+                      </button>
+                    </div>
+
+                    {modalTenantData ? (
+                      <div className="bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
+                        {/* Residents list */}
+                        {modalTenantData.residents.map((r, idx) => (
+                          <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-slate-800 dark:text-white">{r.name}</span>
+                              {r.isTitular && (
+                                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-bold rounded-full">Titular</span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                              {r.phone && <span className="flex items-center gap-1"><Phone size={12} /> {r.phone}</span>}
+                              {r.email && <span className="truncate">✉ {r.email}</span>}
+                              {r.cpf && <span>CPF: {r.cpf}</span>}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Contract summary — without rent value */}
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          {modalTenantData.entryDate && (
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">Data de Entrada</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-white">
+                                {new Date(modalTenantData.entryDate).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          )}
+                          {modalTenantData.dueDay && (
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">Vencimento</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-white">Dia {modalTenantData.dueDay}</p>
+                            </div>
+                          )}
+                          {modalTenantData.endDate && (
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">Fim do Contrato</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-white">
+                                {new Date(modalTenantData.endDate).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {modalTenantData.contractNumber && (
+                          <p className="text-xs text-slate-400 text-center pt-1">Contrato Nº {modalTenantData.contractNumber}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-4 flex items-center justify-center gap-2 text-slate-400 text-sm">
+                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        Carregando dados do inquilino...
+                      </div>
+                    )}
+                  </div>
+                )}
                 {formData.type !== 'Vila' && (
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Fotos (Máximo 8)</label>
@@ -1056,6 +1272,26 @@ export default function Properties() {
       >
         <Users size={24} />
       </Link>
+      <TerminateRentalModal
+        isOpen={!!propertyToTerminate}
+        property={propertyToTerminate!}
+        tenant={tenantToTerminate}
+        contract={contractToTerminate}
+        onClose={() => setPropertyToTerminate(null)}
+        onSuccess={() => {
+          setPropertyToTerminate(null);
+          fetchProperties();
+        }}
+      />
+      <LinkTenantModal
+        isOpen={!!propertyToLink}
+        property={propertyToLink!}
+        onClose={() => setPropertyToLink(null)}
+        onSuccess={() => {
+          setPropertyToLink(null);
+          fetchProperties();
+        }}
+      />
     </Layout>
   );
 }

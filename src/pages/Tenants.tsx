@@ -12,7 +12,8 @@ import {
   UserCheck,
   MoreVertical,
   Trash2,
-  Edit2
+  Edit2,
+  Filter
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,8 @@ export default function Tenants() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -79,6 +82,8 @@ export default function Tenants() {
         ownerSignature: t.owner_signature,
         contractAccepted: t.contract_accepted,
         contractPdf: t.contract_pdf,
+        status: t.status,
+        leaveDate: t.leave_date,
         createdAt: t.created_at,
         updatedAt: t.updated_at
       })));
@@ -89,21 +94,68 @@ export default function Tenants() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este inquilino?')) return;
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir '${name}'?`)) return;
     try {
-      await supabase.from('tenants').delete().eq('id', id);
+      const { error } = await supabase.from('tenants').delete().eq('id', id);
+
+      if (error) {
+        if (error.code === '23503' || error.message.includes('foreign key')) {
+          const forceConfirm = confirm(`O inquilino '${name}' não pôde ser excluído pois existem contratos, cobranças ou mensagens vinculadas a ele.\n\nDeseja FORÇAR A EXCLUSÃO? Isso apagará DEFINITIVAMENTE todo o histórico, mensagens, cobranças e contratos deste inquilino. Não há como reverter!`);
+
+          if (forceConfirm) {
+            await handleForceDelete(id);
+          }
+        } else {
+          alert('Erro ao excluir inquilino: ' + error.message);
+        }
+        return;
+      }
+
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Falha inesperada ao tentar excluir inquilino:', err);
+      alert('Ocorreu um erro inesperado ao tentar excluir o inquilino.');
+    }
+  };
+
+  const handleForceDelete = async (id: string) => {
+    setIsLoading(true);
+    try {
+      // Deep delete to satisfy foreign key constraints:
+      await supabase.from('chat_messages').delete().eq('tenant_id', id);
+      await supabase.from('tenant_ratings').delete().eq('tenant_id', id);
+      await supabase.from('maintenance_tickets').delete().eq('tenant_id', id);
+      await supabase.from('documents').delete().eq('tenant_id', id);
+      await supabase.from('rental_history').delete().eq('tenant_id', id);
+      await supabase.from('events').delete().eq('tenant_id', id);
+      await supabase.from('payments').delete().eq('tenant_id', id);
+      await supabase.from('contracts').delete().eq('tenant_id', id);
+
+      const { error } = await supabase.from('tenants').delete().eq('id', id);
+      if (error) throw error;
+
+      alert('Inquilino e seu histórico foram excluídos com sucesso.');
+      fetchData();
+    } catch (err: any) {
+      console.error('Erro no deep delete:', err);
+      alert('Falha ao forçar a exclusão. Detalhes: ' + err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const filteredTenants = tenants.filter(t => {
     const property = properties[t.propertyId];
     const titular = t.residents.find(r => r.isTitular);
-    return titular?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+
+    const matchesSearch = titular?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       property?.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const effectiveStatus = t.status || 'active';
+    const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -122,15 +174,60 @@ export default function Tenants() {
         </Link>
       </div>
 
-      <div className="relative mb-8">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-        <input
-          type="text"
-          placeholder="Buscar por nome ou imóvel..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
-        />
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+          <input
+            type="text"
+            placeholder="Buscar por nome ou imóvel..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+          />
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+            className={`flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold transition-all ${statusFilter !== 'all' ? 'text-primary border-primary ring-2 ring-primary/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+          >
+            <Filter size={20} />
+            {statusFilter === 'all' ? 'Filtros' : statusFilter === 'active' ? 'Ativos' : 'Inativos (Desocupado)'}
+          </button>
+
+          <AnimatePresence>
+            {isFilterMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsFilterMenuOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setStatusFilter('all'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'all' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('active'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'active' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Ativos
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('inactive'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'inactive' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Inativos (Desocupado)
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {isLoading ? (
@@ -168,7 +265,9 @@ export default function Tenants() {
                     <div className="flex items-center gap-4">
                       <div className="text-right hidden sm:block">
                         <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Status</p>
-                        <p className="text-sm font-bold text-secondary">Contrato Ativo</p>
+                        <p className={`text-sm font-bold ${(!t.status || t.status === 'active') ? 'text-secondary' : 'text-red-500'}`}>
+                          {(!t.status || t.status === 'active') ? 'Contrato Ativo' : 'Desocupado'}
+                        </p>
                       </div>
 
                       <div className="relative">
@@ -196,7 +295,7 @@ export default function Tenants() {
                                   <Edit2 size={16} className="text-primary" /> Editar
                                 </Link>
                                 <button
-                                  onClick={() => { handleDelete(t.id); setActiveMenu(null); }}
+                                  onClick={() => { handleDelete(t.id, titular?.name || 'Inquilino'); setActiveMenu(null); }}
                                   className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                                 >
                                   <Trash2 size={16} /> Excluir

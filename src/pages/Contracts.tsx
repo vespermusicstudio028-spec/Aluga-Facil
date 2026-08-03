@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { 
-  FileText, 
-  Plus, 
-  Search, 
-  Clock, 
-  CheckCircle2, 
-  X, 
+import {
+  FileText,
+  Plus,
+  Search,
+  Clock,
+  CheckCircle2,
+  X,
   Calendar,
   DollarSign,
   User,
@@ -15,7 +15,8 @@ import {
   Edit2,
   Trash2,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Filter
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +33,9 @@ export default function Contracts() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'closed'>('all');
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   const [newContract, setNewContract] = useState<{
     propertyId: string;
@@ -159,17 +163,17 @@ export default function Contracts() {
       });
     } else {
       setEditingContract(null);
-      setNewContract({ 
-        propertyId: '', 
-        tenantId: '', 
-        startDate: '', 
-        endDate: '', 
-        monthlyValue: '', 
-        dueDay: '5', 
-        guaranteeValue: '', 
-        paymentMethod: 'PIX', 
-        pixKey: '', 
-        status: 'pending' 
+      setNewContract({
+        propertyId: '',
+        tenantId: '',
+        startDate: '',
+        endDate: '',
+        monthlyValue: '',
+        dueDay: '5',
+        guaranteeValue: '',
+        paymentMethod: 'PIX',
+        pixKey: '',
+        status: 'pending'
       });
     }
     setIsModalOpen(true);
@@ -205,7 +209,7 @@ export default function Contracts() {
           created_at: new Date().toISOString()
         });
       }
-      
+
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
@@ -218,11 +222,11 @@ export default function Contracts() {
     if (!contract) return;
 
     if (!confirm('Tem certeza que deseja excluir este contrato? Esta ação não pode ser desfeita e o imóvel voltará a ficar disponível.')) return;
-    
+
     try {
       // 1. Delete the contract
       await supabase.from('contracts').delete().eq('id', id);
-      
+
       // 2. Update property status back to available
       if (contract.propertyId) {
         try {
@@ -240,7 +244,7 @@ export default function Contracts() {
   };
 
   const getStatusLabel = (status: ContractStatus) => {
-    switch(status) {
+    switch (status) {
       case 'pending': return { label: 'Pendente', color: 'text-amber-500 bg-amber-50' };
       case 'signed_tenant': return { label: 'Assinado (Inquilino)', color: 'text-blue-500 bg-blue-50' };
       case 'signed_all': return { label: 'Assinado por Todos', color: 'text-secondary bg-secondary/10' };
@@ -257,13 +261,75 @@ export default function Contracts() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Contratos</h1>
           <p className="text-slate-500 dark:text-slate-400">Gerencie os termos de locação.</p>
         </div>
-        <button 
+        <button
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
         >
           <Plus size={20} />
           Novo Contrato
         </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+          <input
+            type="text"
+            placeholder="Buscar por contrato, imóvel ou inquilino..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+          />
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+            className={`flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold transition-all ${statusFilter !== 'all' ? 'text-primary border-primary ring-2 ring-primary/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+          >
+            <Filter size={20} />
+            {statusFilter === 'all' ? 'Filtros' : statusFilter === 'active' ? 'Ativos' : statusFilter === 'pending' ? 'Pendentes' : 'Encerrados'}
+          </button>
+
+          <AnimatePresence>
+            {isFilterMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsFilterMenuOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setStatusFilter('all'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'all' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('active'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'active' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Ativos / Assinados
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('pending'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'pending' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Pendentes
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('closed'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'closed' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    Encerrados / Distratos
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {isLoading ? (
@@ -274,12 +340,27 @@ export default function Contracts() {
         </div>
       ) : contracts.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {contracts.map((c) => {
+          {contracts.filter(c => {
+            const property = properties.find(p => p.id === c.propertyId);
+            const tenant = tenants.find(t => t.id === c.tenantId);
+            const titular = tenant?.residents.find(r => r.isTitular);
+            const matchesSearch = c.contractNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (property?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (titular?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+            let groupStatus = 'all';
+            if (c.status === 'active' || c.status === 'signed_all') groupStatus = 'active';
+            else if (c.status === 'pending' || c.status === 'signed_tenant') groupStatus = 'pending';
+            else if (c.status === 'closed') groupStatus = 'closed';
+
+            const matchesStatus = statusFilter === 'all' || groupStatus === statusFilter;
+            return matchesSearch && matchesStatus;
+          }).map((c) => {
             const property = properties.find(p => p.id === c.propertyId);
             const tenant = tenants.find(t => t.id === c.tenantId);
             const titular = tenant?.residents.find(r => r.isTitular);
             const status = getStatusLabel(c.status);
-            
+
             return (
               <div key={c.id} className="group bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-8 relative hover:border-primary/30 transition-all">
                 <div className="flex-1">
@@ -296,7 +377,7 @@ export default function Contracts() {
                       </div>
                     </div>
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={() => setActiveMenu(activeMenu === c.id ? null : c.id)}
                         className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                       >
@@ -306,19 +387,19 @@ export default function Contracts() {
                         {activeMenu === c.id && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, scale: 0.95, y: -10 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.95, y: -10 }}
                               className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 z-20 overflow-hidden"
                             >
-                              <button 
+                              <button
                                 onClick={() => { handleOpenModal(c); setActiveMenu(null); }}
                                 className="w-full px-4 py-3 text-left text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
                               >
                                 <Edit2 size={16} /> Editar Termos
                               </button>
-                              <button 
+                              <button
                                 onClick={() => { handleDelete(c.id); setActiveMenu(null); }}
                                 className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
                               >
@@ -333,11 +414,11 @@ export default function Contracts() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     <div>
                       <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Imóvel</p>
-                      <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"><Home size={14}/> {property?.name || 'Não encontrado'}</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"><Home size={14} /> {property?.name || 'Não encontrado'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Inquilino</p>
-                      <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"><User size={14}/> {titular?.name || 'Não encontrado'}</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1"><User size={14} /> {titular?.name || 'Não encontrado'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Valor Mensal</p>
@@ -356,7 +437,7 @@ export default function Contracts() {
                       </p>
                     </div>
                   </div>
-                  <Link 
+                  <Link
                     to={`/contracts/${c.id}`}
                     className="w-full py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-sm hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2"
                   >
@@ -376,7 +457,7 @@ export default function Contracts() {
           <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto">
             Crie um contrato para oficializar a locação entre seu imóvel e o inquilino.
           </p>
-          <button 
+          <button
             onClick={() => handleOpenModal()}
             className="bg-primary text-white px-8 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
           >
@@ -389,14 +470,14 @@ export default function Contracts() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -409,11 +490,11 @@ export default function Contracts() {
               <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Imóvel</label>
-                  <select 
+                  <select
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     value={newContract.propertyId}
-                    onChange={(e) => setNewContract({...newContract, propertyId: e.target.value})}
+                    onChange={(e) => setNewContract({ ...newContract, propertyId: e.target.value })}
                   >
                     <option value="">Selecione o imóvel</option>
                     {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -421,11 +502,11 @@ export default function Contracts() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Inquilino (Titular)</label>
-                  <select 
+                  <select
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     value={newContract.tenantId}
-                    onChange={(e) => setNewContract({...newContract, tenantId: e.target.value})}
+                    onChange={(e) => setNewContract({ ...newContract, tenantId: e.target.value })}
                   >
                     <option value="">Selecione o inquilino</option>
                     {tenants.map(t => <option key={t.id} value={t.id}>{t.residents.find(r => r.isTitular)?.name}</option>)}
@@ -434,68 +515,68 @@ export default function Contracts() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Início</label>
-                    <input 
+                    <input
                       required
-                      type="date" 
+                      type="date"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.startDate}
-                      onChange={(e) => setNewContract({...newContract, startDate: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, startDate: e.target.value })}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Fim</label>
-                    <input 
+                    <input
                       required
-                      type="date" 
+                      type="date"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.endDate}
-                      onChange={(e) => setNewContract({...newContract, endDate: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, endDate: e.target.value })}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Valor Mensal</label>
-                    <input 
+                    <input
                       required
-                      type="number" 
-                      placeholder="R$ 0.00" 
+                      type="number"
+                      placeholder="R$ 0.00"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.monthlyValue}
-                      onChange={(e) => setNewContract({...newContract, monthlyValue: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, monthlyValue: e.target.value })}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Caução / Garantia</label>
-                    <input 
+                    <input
                       required
-                      type="number" 
-                      placeholder="R$ 0.00" 
+                      type="number"
+                      placeholder="R$ 0.00"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.guaranteeValue}
-                      onChange={(e) => setNewContract({...newContract, guaranteeValue: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, guaranteeValue: e.target.value })}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Dia Vencimento</label>
-                    <input 
+                    <input
                       required
-                      type="number" 
+                      type="number"
                       min="1" max="31"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.dueDay}
-                      onChange={(e) => setNewContract({...newContract, dueDay: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, dueDay: e.target.value })}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Forma de Pagamento</label>
-                    <select 
+                    <select
                       required
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.paymentMethod}
-                      onChange={(e) => setNewContract({...newContract, paymentMethod: e.target.value as any})}
+                      onChange={(e) => setNewContract({ ...newContract, paymentMethod: e.target.value as any })}
                     >
                       <option value="PIX">PIX</option>
                       <option value="Transferência">Transferência</option>
@@ -506,25 +587,25 @@ export default function Contracts() {
                 {newContract.paymentMethod === 'PIX' && (
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Chave PIX</label>
-                    <input 
+                    <input
                       required
-                      type="text" 
-                      placeholder="Sua chave PIX" 
+                      type="text"
+                      placeholder="Sua chave PIX"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={newContract.pixKey}
-                      onChange={(e) => setNewContract({...newContract, pixKey: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, pixKey: e.target.value })}
                     />
                   </div>
                 )}
                 <div className="pt-4 flex gap-4">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setIsModalOpen(false)}
                     className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-opacity-90 shadow-lg shadow-primary/20 transition-all"
                   >
