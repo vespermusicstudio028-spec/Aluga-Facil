@@ -48,7 +48,7 @@ export default function NewTenantFlow() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
   const [isEditing, setIsEditing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit' | 'debit' | 'cash' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto' | 'cash' | null>(null);
   const [pixKey, setPixKey] = useState('');
   const [dueDay, setDueDay] = useState('05');
   const [leaseTerm, setLeaseTerm] = useState('12');
@@ -640,8 +640,8 @@ export default function NewTenantFlow() {
                                     setStep(2);
                                   }}
                                   className={`p-4 rounded-3xl border-2 transition-all cursor-pointer flex gap-4 items-center ${selectedProperty?.id === p.id
-                                      ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
-                                      : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-200 dark:hover:border-slate-700'
+                                    ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
+                                    : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-200 dark:hover:border-slate-700'
                                     }`}
                                 >
                                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center shrink-0">
@@ -682,8 +682,8 @@ export default function NewTenantFlow() {
                       setStep(3);
                     }}
                     className={`p-6 rounded-3xl border-2 font-bold transition-all ${residentCount === num
-                        ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20'
-                        : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-200'
+                      ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20'
+                      : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-200'
                       }`}
                   >
                     {num === 5 ? '5 ou mais' : num}
@@ -866,8 +866,8 @@ export default function NewTenantFlow() {
                         const isUploaded = !!resident.documents?.[field];
                         return (
                           <label key={docItem.name} className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 border-2 border-dashed transition-all cursor-pointer overflow-hidden relative group ${isUploaded
-                              ? 'border-primary bg-primary/5'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                            ? 'border-primary bg-primary/5'
+                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                             }`}>
                             {isUploaded ? (
                               <>
@@ -930,8 +930,8 @@ export default function NewTenantFlow() {
                         key={term}
                         onClick={() => setLeaseTerm(term)}
                         className={`p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === term
-                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
-                            : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
+                          ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
+                          : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
                           }`}
                       >
                         {term} meses
@@ -941,8 +941,8 @@ export default function NewTenantFlow() {
                       <button
                         onClick={() => setLeaseTerm('other')}
                         className={`w-full p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === 'other'
-                            ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
-                            : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
+                          ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
+                          : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
                           }`}
                       >
                         Outro
@@ -1024,8 +1024,8 @@ export default function NewTenantFlow() {
                     key={method.id}
                     onClick={() => setPaymentMethod(method.id as any)}
                     className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-6 transition-all ${paymentMethod === method.id
-                        ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                      ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                   >
                     <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
@@ -1218,13 +1218,13 @@ export default function NewTenantFlow() {
                   <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
                       <img
-                        src={paymentMethod === 'pix' ? pixIcon : paymentMethod === 'credit' ? creditIcon : paymentMethod === 'debit' ? debitIcon : cashIcon}
+                        src={paymentMethod === 'pix' ? pixIcon : paymentMethod === 'boleto' ? boletoIcon : cashIcon}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white text-lg">
-                        {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'boleto' ? 'Boleto' : 'Dinheiro'}
+                        {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'boleto' ? 'Boleto' : paymentMethod === 'cash' ? 'Dinheiro' : 'Não selecionado'}
                       </p>
                       {paymentMethod === 'pix' && pixKey && <p className="text-slate-500 text-sm">Chave: {pixKey}</p>}
                       <p className="text-slate-500 text-sm font-bold mt-1">Vencimento: Todo dia {dueDay} de cada mês.</p>

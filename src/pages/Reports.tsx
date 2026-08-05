@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { 
-  BarChart3, 
-  Download, 
-  FileText, 
-  Table as TableIcon, 
+import {
+  BarChart3,
+  Download,
+  FileText,
+  Table as TableIcon,
   Calendar,
   CheckCircle2,
   Clock,
@@ -73,10 +73,12 @@ export default function Reports() {
           propertyId: c.property_id,
           tenantId: c.tenant_id,
           ownerId: c.owner_id,
+          contractNumber: c.contract_number || `CTR-${c.id.substring(0, 4).toUpperCase()}`,
           startDate: c.start_date,
           endDate: c.end_date,
           monthlyValue: c.monthly_value,
           dueDay: c.due_day,
+          guaranteeValue: c.guarantee_value || 0,
           status: c.status,
           paymentMethod: c.payment_method,
           createdAt: c.created_at,
@@ -93,7 +95,7 @@ export default function Reports() {
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text('Relatório de Pagamentos - AlugaFácil', 14, 15);
-    
+
     const tableData = data.payments.map(p => [
       new Date(p.dueDate).toLocaleDateString(),
       `R$ ${p.amount.toLocaleString()}`,
@@ -139,11 +141,11 @@ export default function Reports() {
           </div>
           <div className="mt-8 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 flex items-center gap-2"><CheckCircle2 size={16} className="text-secondary"/> Pagamentos Recebidos</span>
+              <span className="text-slate-500 flex items-center gap-2"><CheckCircle2 size={16} className="text-secondary" /> Pagamentos Recebidos</span>
               <span className="font-bold text-slate-900 dark:text-white">{data.payments.filter(p => p.status === 'paid').length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 flex items-center gap-2"><Clock size={16} className="text-orange-500"/> Pendentes</span>
+              <span className="text-slate-500 flex items-center gap-2"><Clock size={16} className="text-orange-500" /> Pendentes</span>
               <span className="font-bold text-slate-900 dark:text-white">R$ {pendingRevenue.toLocaleString()}</span>
             </div>
           </div>
@@ -155,13 +157,13 @@ export default function Reports() {
             <p className="text-slate-500 mb-6">Gere documentos profissionais para sua contabilidade ou arquivo pessoal.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button 
+            <button
               onClick={exportPDF}
               className="flex items-center justify-center gap-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 py-4 rounded-2xl font-bold hover:scale-105 transition-transform"
             >
               <FileText size={20} /> PDF
             </button>
-            <button 
+            <button
               onClick={exportExcel}
               className="flex items-center justify-center gap-2 bg-secondary text-white py-4 rounded-2xl font-bold hover:scale-105 transition-transform"
             >

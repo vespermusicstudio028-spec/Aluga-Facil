@@ -412,9 +412,9 @@ export default function Properties() {
     setIsSaving(true);
 
     // Função helper para forçar timeout se o Supabase travar
-    const withTimeout = <T,>(promise: Promise<T>, ms = 8000) => {
+    const withTimeout = <T,>(promise: PromiseLike<T>, ms = 8000): Promise<T> => {
       return Promise.race([
-        promise,
+        Promise.resolve(promise),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_SUPABASE')), ms))
       ]);
     };
