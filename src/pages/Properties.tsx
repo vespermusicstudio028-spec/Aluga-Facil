@@ -501,27 +501,23 @@ export default function Properties() {
     if (!confirm('Tem certeza que deseja excluir este imóvel? Esta ação é irreversível.')) return;
 
     try {
-      // Tentativa 1: delete direto
+      // Tenta delete direto primeiro
       const { error } = await supabase.from('properties').delete().eq('id', id);
 
       if (!error) {
         fetchProperties();
+        alert('Imóvel excluído com sucesso!');
         return;
       }
 
-      // Tentativa 2: erro de FK — perguntar se quer forçar
+      // Erro de FK — perguntar se quer forçar exclusão em cascata
       const forceDelete = confirm(
         'Este imóvel possui contratos, histórico ou registros associados.\n\nDeseja excluir tudo permanentemente? Esta ação é IRREVERSÍVEL.'
       );
 
       if (!forceDelete) return;
 
-      // Remover todos os registros dependentes em ordem
-      await supabase.from('rental_history').delete().eq('property_id', id);
-      await supabase.from('maintenance_tickets').delete().eq('property_id', id);
-      await supabase.from('agenda').delete().eq('property_id', id);
-
-      // Buscar contratos para limpar pagamentos associados
+      // Buscar contratos vinculados para limpar pagamentos associados
       const { data: linkedContracts } = await supabase
         .from('contracts')
         .select('id')
@@ -530,8 +526,18 @@ export default function Properties() {
       if (linkedContracts && linkedContracts.length > 0) {
         const contractIds = linkedContracts.map((c: any) => c.id);
         await supabase.from('payments').delete().in('contract_id', contractIds);
+        await supabase.from('documents').delete().in('contract_id', contractIds);
         await supabase.from('contracts').delete().eq('property_id', id);
       }
+
+      // Remover todos os registros dependentes
+      await supabase.from('rental_history').delete().eq('property_id', id);
+      await supabase.from('maintenance_tickets').delete().eq('property_id', id);
+      await supabase.from('events').delete().eq('property_id', id);
+      await supabase.from('documents').delete().eq('property_id', id);
+
+      // Atualiza tenants vinculados (property_id vira NULL via RLS, mas garantimos o update)
+      await supabase.from('tenants').update({ property_id: null }).eq('property_id', id);
 
       // Agora excluir o imóvel
       const { error: finalError } = await supabase.from('properties').delete().eq('id', id);
@@ -539,6 +545,7 @@ export default function Properties() {
       if (finalError) {
         alert(`Erro ao excluir o imóvel: ${finalError.message}`);
       } else {
+        alert('Imóvel e todos os registros vinculados foram excluídos com sucesso!');
         fetchProperties();
       }
     } catch (err) {
