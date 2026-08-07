@@ -1,12 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { 
-  CreditCard, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  Clock, 
+import {
+  CreditCard,
+  Search,
+  Filter,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   MoreVertical,
   DollarSign,
@@ -21,6 +21,7 @@ import { Payment, Property, Tenant, Contract } from '../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PaymentAlerts from '../components/PaymentAlerts';
+import BillingActionModal from '../components/BillingActionModal';
 
 export default function Payments() {
   const { user } = useAuth();
@@ -30,12 +31,18 @@ export default function Payments() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
+  const [selectedBillingAction, setSelectedBillingAction] = useState<{
+    payment: Payment,
+    tenant: Tenant,
+    property: Property
+  } | null>(null);
+
   useEffect(() => {
     if (!user) return;
     fetchData();
   }, [user]);
 
-    const fetchData = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     try {
       const [payRes, propRes, tenRes] = await Promise.all([
@@ -127,19 +134,19 @@ export default function Payments() {
         .select('*')
         .eq('owner_id', user.uid)
         .eq('status', 'active');
-        
+
       if (error) throw error;
-      
+
       const today = new Date();
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
 
       for (const contract of (contracts || [])) {
         const dueDate = new Date(currentYear, currentMonth, contract.due_day);
-        
+
         const startDateStr = new Date(currentYear, currentMonth, 1).toISOString();
         const endDateStr = new Date(currentYear, currentMonth + 1, 0).toISOString();
-        
+
         const { data: existingPayments } = await supabase
           .from('payments')
           .select('id')
@@ -180,17 +187,17 @@ export default function Payments() {
     if (!phone.startsWith('55')) phone = '55' + phone;
 
     let dueDate = '';
-      dueDate = format(new Date(payment.dueDate), 'dd/MM/yyyy');
+    dueDate = format(new Date(payment.dueDate), 'dd/MM/yyyy');
     const amount = Number(payment.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    
+
     let text = `Olá ${titular.name},\n\nEste é um lembrete automático sobre o pagamento do imóvel *${property?.name || ''}*.\n\n`;
     text += `*Valor:* R$ ${amount}\n`;
     text += `*Vencimento:* ${dueDate}\n\n`;
-    
+
     if (tenant.paymentMethod === 'pix' && tenant.pixKey) {
-        text += `Você pode realizar o pagamento via PIX utilizando a chave:\n*${tenant.pixKey}*\n\n`;
+      text += `Você pode realizar o pagamento via PIX utilizando a chave:\n*${tenant.pixKey}*\n\n`;
     }
-    
+
     text += `Por favor, desconsidere esta mensagem caso o pagamento já tenha sido realizado.\nObrigado!`;
 
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
@@ -203,7 +210,7 @@ export default function Payments() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Pagamentos</h1>
           <p className="text-slate-500 dark:text-slate-400">Controle de recebimentos e inadimplência.</p>
         </div>
-        <button 
+        <button
           onClick={generatePayments}
           disabled={isLoading}
           className="flex items-center gap-2 bg-secondary text-white px-6 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg shadow-secondary/20"
@@ -213,9 +220,9 @@ export default function Payments() {
         </button>
       </div>
 
-      <PaymentAlerts 
-        payments={payments} 
-        getPropertyName={(id) => properties[id]?.name || 'Imóvel'} 
+      <PaymentAlerts
+        payments={payments}
+        getPropertyName={(id) => properties[id]?.name || 'Imóvel'}
       />
 
       <div className="flex flex-wrap gap-2 mb-8">
@@ -223,11 +230,10 @@ export default function Payments() {
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`px-6 py-2 rounded-xl font-bold text-sm transition-all capitalize ${
-              filter === s 
-                ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+            className={`px-6 py-2 rounded-xl font-bold text-sm transition-all capitalize ${filter === s
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
-            }`}
+              }`}
           >
             {s === 'all' ? 'Todos' : s === 'pending' ? 'Pendentes' : s === 'paid' ? 'Pagos' : 'Atrasados'}
           </button>
@@ -274,17 +280,16 @@ export default function Payments() {
                         <p className="font-bold text-slate-900 dark:text-white">R$ {p.amount.toLocaleString()}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          p.status === 'paid' ? 'bg-secondary/10 text-secondary' : 
-                          p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.status === 'paid' ? 'bg-secondary/10 text-secondary' :
+                            p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
+                          }`}>
                           {p.status === 'paid' ? 'Pago' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           {p.status !== 'paid' && (
-                            <button 
+                            <button
                               onClick={() => handleMarkAsPaid(p.id)}
                               className="p-2 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition-all"
                               title="Marcar como pago"
@@ -292,16 +297,15 @@ export default function Payments() {
                               <CheckCircle2 size={18} />
                             </button>
                           )}
-                          
+
                           {p.status !== 'paid' && (
-                            <a 
-                              href={getWhatsAppReminderLink(p, tenant, property)}
-                              target="_blank" rel="noopener noreferrer"
+                            <button
+                              onClick={() => setSelectedBillingAction({ payment: p, tenant, property })}
                               className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all flex items-center justify-center"
-                              title="Enviar Lembrete"
+                              title="Gerar Cobrança Pix/WhatsApp"
                             >
                               <MessageCircle size={18} />
-                            </a>
+                            </button>
                           )}
 
                           <button className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg hover:bg-slate-200 transition-all">
@@ -321,6 +325,14 @@ export default function Payments() {
           </table>
         </div>
       </div>
+
+      <BillingActionModal
+        isOpen={!!selectedBillingAction}
+        onClose={() => setSelectedBillingAction(null)}
+        payment={selectedBillingAction?.payment || null}
+        tenant={selectedBillingAction?.tenant || null}
+        property={selectedBillingAction?.property || null}
+      />
     </Layout>
   );
 }
