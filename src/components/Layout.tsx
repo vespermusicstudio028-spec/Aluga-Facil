@@ -656,38 +656,44 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {/* Botão Flutuante de Inquilinos - Only if not locked and not in settings/profile/plan */}
-      {!isSystemLocked && !['/tenants/new', '/plan', '/profile', '/settings'].includes(location.pathname) && (
-        <Link
-          to="/tenants/new"
-          className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
-        >
-          <UsersIcon size={26} />
-          <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-            Novo Inquilino
-          </span>
-        </Link>
-      )}
+      {/* Botão Flutuante de Inquilinos - só em Imóveis e Inquilinos */}
+      {!isSystemLocked && (
+        location.pathname === '/properties' ||
+        location.pathname === '/tenants'
+      ) && (
+          <Link
+            to="/tenants/new"
+            className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
+          >
+            <UsersIcon size={26} />
+            <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+              Novo Inquilino
+            </span>
+          </Link>
+        )}
 
-      {/* Botão Flutuante de Chat para o Proprietário - Only if not locked and not in settings/profile/plan */}
-      {!isSystemLocked && !['/chat', '/plan', '/profile', '/settings'].includes(location.pathname) && (
-        <Link
-          to="/chat"
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
-        >
-          <div className="relative flex items-center justify-center w-full h-full">
-            <MessageSquare size={26} />
-            {chatUnread > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow">
-                {chatUnread > 9 ? '9+' : chatUnread}
-              </span>
-            )}
-          </div>
-          <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-            Chat
-          </span>
-        </Link>
-      )}
+      {/* Botão Flutuante de Chat - só em Imóveis e Inquilinos */}
+      {!isSystemLocked && (
+        location.pathname === '/properties' ||
+        location.pathname === '/tenants'
+      ) && (
+          <Link
+            to="/chat"
+            className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
+          >
+            <div className="relative flex items-center justify-center w-full h-full">
+              <MessageSquare size={26} />
+              {chatUnread > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow">
+                  {chatUnread > 9 ? '9+' : chatUnread}
+                </span>
+              )}
+            </div>
+            <span className="absolute right-16 bg-slate-800 text-white text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+              Chat
+            </span>
+          </Link>
+        )}
     </div>
   );
 }

@@ -78,6 +78,9 @@ export default function Admin() {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
 
+  // Bulk Actions
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
   // Invoices tab
   const [allInvoices, setAllInvoices] = useState<any[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
@@ -254,6 +257,51 @@ export default function Admin() {
     setFiltered(list);
   }, [users, search, planFilter, statusFilter]);
 
+  // --- Bulk Actions ---
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) setSelectedUsers(filtered.map(u => u.uid));
+    else setSelectedUsers([]);
+  };
+
+  const handleSelectUser = (uid: string) => {
+    setSelectedUsers(prev => prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]);
+  };
+
+  const bulkChangePlan = async (plan: UserPlan) => {
+    if (!window.confirm(`Alterar o plano de ${selectedUsers.length} usuário(s) para ${PLAN_LABELS[plan] || plan}?`)) return;
+    try {
+      await Promise.all(selectedUsers.map(uid => changePlan(uid, plan, true)));
+      setSelectedUsers([]);
+      fetchData();
+      if (activeTab === 'invoices') fetchAllInvoices();
+      alert('Planos atualizados com sucesso!');
+    } catch (e) {
+      alert("Erro ao alterar planos em lote.");
+    }
+  };
+
+  const bulkToggleStatus = async (targetStatus: 'active' | 'blocked') => {
+    if (!window.confirm(`Mudar o status de ${selectedUsers.length} usuário(s) para ${targetStatus === 'active' ? 'Ativo' : 'Bloqueado'}?`)) return;
+    try {
+      await Promise.all(selectedUsers.map(uid => supabase.from('profiles').update({ status: targetStatus }).eq('id', uid)));
+      setSelectedUsers([]);
+      fetchData();
+    } catch (e) {
+      alert("Erro ao alterar status em lote.");
+    }
+  };
+
+  const bulkDeleteUsers = async () => {
+    if (!window.confirm(`ATENÇÃO: Excluir permanentemente ${selectedUsers.length} conta(s)? Isso excluirá dados agregados.`)) return;
+    try {
+      await Promise.all(selectedUsers.map(uid => supabase.rpc('delete_user_account', { p_user_id: uid })));
+      setSelectedUsers([]);
+      fetchData();
+    } catch (e) {
+      alert("Erro ao excluir contas em lote.");
+    }
+  };
+
   // Actions
   const toggleStatus = async (uid: string, current: string) => {
     const next = current === 'active' ? 'blocked' : 'active';
@@ -261,7 +309,7 @@ export default function Admin() {
     setActionUserId(null);
   };
 
-  const changePlan = async (uid: string, plan: UserPlan) => {
+  const changePlan = async (uid: string, plan: UserPlan, skipRefresh = false) => {
     try {
       await supabase.from('profiles').update({ plan }).eq('id', uid);
 
@@ -285,7 +333,7 @@ export default function Admin() {
 
         if (insErr) {
           console.error("Supabase Invoice Error:", insErr);
-          alert("O plano foi atualizado, porém o banco de dados de segurança bloqueou a geração da fatura: " + insErr.message);
+          if (!skipRefresh) alert("O plano foi atualizado, porém o banco de dados de segurança bloqueou a geração da fatura: " + insErr.message);
         }
 
         await supabase.from('profiles').update({
@@ -293,7 +341,7 @@ export default function Admin() {
           status: 'active'
         }).eq('id', uid);
 
-        if (activeTab === 'invoices') fetchAllInvoices();
+        if (activeTab === 'invoices' && !skipRefresh) fetchAllInvoices();
       }
     } catch (e) {
       console.error(e);
@@ -468,11 +516,50 @@ export default function Admin() {
             </select>
           </div>
 
+          {selectedUsers.length > 0 && (
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-sm animate-fade-in">
+              <span className="text-primary font-bold text-sm">
+                {selectedUsers.length} {selectedUsers.length === 1 ? 'usuário selecionado' : 'usuários selecionados'}
+              </span>
+              <div className="flex gap-2 items-center flex-wrap">
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      bulkChangePlan(e.target.value as UserPlan);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none"
+                >
+                  <option value="">Alterar Plano...</option>
+                  <option value="trial">Trial (Teste)</option>
+                  <option value="basic">Basic</option>
+                  <option value="professional">Professional</option>
+                  <option value="premium">Premium</option>
+                </select>
+                <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1" />
+                <button onClick={() => bulkToggleStatus('active')} className="px-3 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors">
+                  Desbloquear
+                </button>
+                <button onClick={() => bulkToggleStatus('blocked')} className="px-3 py-1.5 text-sm font-medium bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors">
+                  Bloquear
+                </button>
+                <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1" />
+                <button onClick={bulkDeleteUsers} className="px-3 py-1.5 text-sm font-bold bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-2 transition-colors">
+                  <Trash2 size={14} /> Excluir
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
                   <tr>
+                    <th className="px-4 py-4 w-12 text-center text-xs font-bold text-slate-400">
+                      <input type="checkbox" checked={selectedUsers.length === filtered.length && filtered.length > 0} onChange={handleSelectAll} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary" />
+                    </th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Usuário</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
@@ -481,7 +568,10 @@ export default function Admin() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filtered.map(u => (
-                    <tr key={u.uid} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <tr key={u.uid} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 ${selectedUsers.includes(u.uid) ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
+                      <td className="px-4 py-4 text-center">
+                        <input type="checkbox" checked={selectedUsers.includes(u.uid)} onChange={() => handleSelectUser(u.uid)} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary" />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {u.photoURL ? (

@@ -1,26 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { 
-  Building2, 
-  Users, 
-  CreditCard, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Building2,
+  Users,
+  CreditCard,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
   AlertCircle,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Home,
+  UserX,
+  XOctagon
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area
 } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,6 +49,12 @@ export default function Dashboard() {
     monthlyRevenue: 0,
     pendingPayments: 0,
     latePayments: 0,
+    activeContracts: 0,
+    closedContracts: 0,
+    rescindedContracts: 0,
+    expiringContracts: 0,
+    renewedContracts: 0,
+    exTenants: 0
   });
   const [trends, setTrends] = useState({
     properties: 0,
@@ -67,21 +76,21 @@ export default function Dashboard() {
       const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
 
       const [propRes, tenantRes, contractRes, paymentRes,
-             lastMonthPayRes, prevTenantRes, prevPropRes, pendingRes] = await Promise.all([
-        supabase.from('properties').select('*').eq('owner_id', user.uid),
-        supabase.from('tenants').select('id').eq('owner_id', user.uid),
-        supabase.from('contracts').select('*').eq('owner_id', user.uid).eq('status', 'active'),
-        supabase.from('payments').select('*').eq('owner_id', user.uid).order('due_date', { ascending: false }).limit(5),
-        // Last month payments for revenue trend
-        supabase.from('payments').select('amount').eq('owner_id', user.uid)
-          .gte('due_date', firstDayLastMonth).lte('due_date', lastDayLastMonth).eq('status', 'paid'),
-        // Tenants created before this month for trend
-        supabase.from('tenants').select('id, created_at').eq('owner_id', user.uid).lt('created_at', firstDayThisMonth),
-        // Properties created before this month for trend
-        supabase.from('properties').select('id, created_at').eq('owner_id', user.uid).lt('created_at', firstDayThisMonth),
-        // All pending payments for alerts
-        supabase.from('payments').select('*').eq('owner_id', user.uid).eq('status', 'pending')
-      ]);
+        lastMonthPayRes, prevTenantRes, prevPropRes, pendingRes] = await Promise.all([
+          supabase.from('properties').select('*').eq('owner_id', user.uid),
+          supabase.from('tenants').select('id, tenant_status, property_id').eq('owner_id', user.uid),
+          supabase.from('contracts').select('*').eq('owner_id', user.uid),
+          supabase.from('payments').select('*').eq('owner_id', user.uid).order('due_date', { ascending: false }).limit(5),
+          // Last month payments for revenue trend
+          supabase.from('payments').select('amount').eq('owner_id', user.uid)
+            .gte('due_date', firstDayLastMonth).lte('due_date', lastDayLastMonth).eq('status', 'paid'),
+          // Tenants created before this month for trend
+          supabase.from('tenants').select('id, created_at').eq('owner_id', user.uid).lt('created_at', firstDayThisMonth),
+          // Properties created before this month for trend
+          supabase.from('properties').select('id, created_at').eq('owner_id', user.uid).lt('created_at', firstDayThisMonth),
+          // All pending payments for alerts
+          supabase.from('payments').select('*').eq('owner_id', user.uid).eq('status', 'pending')
+        ]);
 
       const properties = (propRes.data || []).map(p => ({
         id: p.id,
@@ -133,8 +142,19 @@ export default function Dashboard() {
       setPendingAlerts(pending);
 
       // Revenue current month (contracts)
-      const contractRevenue = (contractRes.data || []).reduce((acc, c) => acc + (Number(c.monthly_value) || 0), 0);
-      const contractedPropertyIds = new Set((contractRes.data || []).map(c => c.property_id));
+      const allContracts = contractRes.data || [];
+      const activeContracts = allContracts.filter(c => c.status === 'active' || c.status === 'ativo' || c.status === 'signed_all');
+
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+      const expiringContracts = activeContracts.filter(c => c.end_date && new Date(c.end_date) <= thirtyDaysFromNow).length;
+      const closedContracts = allContracts.filter(c => c.status === 'closed' || c.status === 'encerrado').length;
+      const rescindedContracts = allContracts.filter(c => c.status === 'rescindido').length;
+      const renewedContracts = allContracts.filter(c => c.status === 'em_renovacao').length;
+
+      const contractRevenue = activeContracts.reduce((acc, c) => acc + (Number(c.monthly_value) || 0), 0);
+      const contractedPropertyIds = new Set(activeContracts.map(c => c.property_id));
       const nonContractedRevenue = properties
         .filter(p => p.status === 'rented' && !contractedPropertyIds.has(p.id))
         .reduce((acc, p) => acc + (Number(p.rentValue) || 0), 0);
@@ -144,7 +164,9 @@ export default function Dashboard() {
       const lastMonthRevenue = (lastMonthPayRes.data || []).reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
 
       // Current counts
-      const currentTenants = tenantRes.data?.length || 0;
+      const allTenants = tenantRes.data || [];
+      const currentTenants = allTenants.filter(t => t.tenant_status === 'ativo' || t.property_id).length;
+      const exTenants = allTenants.filter(t => t.tenant_status === 'ex_inquilino').length;
       const currentProps = properties.length;
 
       // Previous month counts
@@ -171,6 +193,12 @@ export default function Dashboard() {
         monthlyRevenue: currentRevenue,
         pendingPayments: 0,
         latePayments: 0,
+        activeContracts: activeContracts.length,
+        closedContracts,
+        rescindedContracts,
+        expiringContracts,
+        renewedContracts,
+        exTenants
       });
       setRecentPayments(payments);
     };
@@ -205,34 +233,59 @@ export default function Dashboard() {
 
       <PaymentAlerts payments={pendingAlerts} getPropertyName={(id) => propertiesMap[id]?.name || 'Imóvel'} />
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard 
-          icon={<Building2 className="text-primary" />} 
-          label="Total de Imóveis" 
-          value={stats.totalProperties} 
+        <StatCard
+          icon={<Building2 className="text-primary" />}
+          label="Total de Imóveis"
+          value={stats.totalProperties}
           trend={trends.properties}
           color="bg-primary/10"
         />
-        <StatCard 
-          icon={<Users className="text-secondary" />} 
-          label="Inquilinos Ativos" 
-          value={stats.activeTenants} 
+        <StatCard
+          icon={<Users className="text-secondary" />}
+          label="Inquilinos Ativos"
+          value={stats.activeTenants}
           trend={trends.tenants}
           color="bg-secondary/10"
         />
-        <StatCard 
-          icon={<CreditCard className="text-accent" />} 
-          label="Receita Mensal" 
-          value={`R$ ${stats.monthlyRevenue.toLocaleString('pt-BR')}`} 
+        <StatCard
+          icon={<CreditCard className="text-accent" />}
+          label="Receita Mensal"
+          value={`R$ ${stats.monthlyRevenue.toLocaleString('pt-BR')}`}
           trend={trends.revenue}
           color="bg-accent/10"
         />
-        <StatCard 
-          icon={<AlertCircle className="text-red-500" />} 
-          label="Pendências" 
-          value={stats.pendingPayments} 
+        <StatCard
+          icon={<AlertCircle className="text-red-500" />}
+          label="Pendências"
+          value={stats.pendingPayments}
           color="bg-red-500/10"
+        />
+
+        {/* Novas Estatísticas Profissionais */}
+        <StatCard
+          icon={<CheckCircle2 className="text-slate-500" />}
+          label="Contratos Encerrados"
+          value={stats.closedContracts}
+          color="bg-slate-500/10"
+        />
+        <StatCard
+          icon={<XOctagon className="text-red-500" />}
+          label="Contratos Rescindidos"
+          value={stats.rescindedContracts}
+          color="bg-red-500/10"
+        />
+        <StatCard
+          icon={<AlertCircle className="text-orange-500" />}
+          label="Contratos Vencendo (30d)"
+          value={stats.expiringContracts}
+          color="bg-orange-500/10"
+        />
+        <StatCard
+          icon={<TrendingUp className="text-blue-500" />}
+          label="Contratos em Renovação"
+          value={stats.renewedContracts}
+          color="bg-blue-500/10"
         />
       </div>
 
@@ -251,14 +304,14 @@ export default function Dashboard() {
               <AreaChart data={data}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#1e3a8a" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#1e3a8a" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <Tooltip
                   contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                   itemStyle={{ color: '#1e3a8a', fontWeight: 'bold' }}
                 />

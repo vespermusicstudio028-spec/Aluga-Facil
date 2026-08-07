@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, FileText, UploadCloud, Calendar } from 'lucide-react';
+import { X, AlertTriangle, FileText, Calendar, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Property, Tenant, Contract } from '../types';
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TerminateRentalModalProps {
     isOpen: boolean;
@@ -15,9 +15,31 @@ interface TerminateRentalModalProps {
     onSuccess: () => void;
 }
 
-export function TerminateRentalModal({ isOpen, onClose, property, tenant, contract, onSuccess }: TerminateRentalModalProps) {
+const TERMINATION_REASONS = [
+    'Fim do contrato',
+    'Mudança',
+    'Distrato',
+    'Rescisão pelo Inquilino',
+    'Rescisão pelo Proprietário',
+    'Despejo',
+    'Venda do imóvel',
+    'Inadimplência',
+    'Falecimento',
+    'Outro',
+];
+
+export function TerminateRentalModal({
+    isOpen,
+    onClose,
+    property,
+    tenant,
+    contract,
+    onSuccess,
+}: TerminateRentalModalProps) {
+    const { user } = useAuth();
     const [leaveDate, setLeaveDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [reason, setReason] = useState('Fim do contrato');
+    const [terminationType, setTerminationType] = useState<'encerrado' | 'rescindido'>('encerrado');
     const [notes, setNotes] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -37,17 +59,18 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
                 doc.text(`Inquilino Principal: ${tenant.residents[0].name}`, 20, 60);
                 doc.text(`CPF: ${tenant.residents[0].cpf}`, 20, 70);
             }
-            doc.text(`Data de Saída: ${format(new Date(leaveDate), "dd/MM/yyyy")}`, 20, 80);
-            doc.text(`Motivo: ${reason}`, 20, 90);
+            doc.text(`Data de Saída: ${format(new Date(leaveDate), 'dd/MM/yyyy')}`, 20, 80);
+            doc.text(`Tipo: ${terminationType === 'rescindido' ? 'Rescisão' : 'Encerramento Normal'}`, 20, 90);
+            doc.text(`Motivo: ${reason}`, 20, 100);
 
             if (contract) {
-                doc.text(`Valor do Aluguel Referência: R$ ${contract.monthlyValue.toFixed(2).replace('.', ',')}`, 20, 100);
+                doc.text(`Valor do Aluguel Referência: R$ ${contract.monthlyValue.toFixed(2).replace('.', ',')}`, 20, 110);
             }
 
-            doc.text('Observações:', 20, 115);
+            doc.text('Observações:', 20, 125);
             doc.setFontSize(10);
             const splitNotes = doc.splitTextToSize(notes || 'Nenhuma observação', 170);
-            doc.text(splitNotes, 20, 125);
+            doc.text(splitNotes, 20, 135);
 
             doc.setFontSize(12);
             doc.text('_________________________________________________', 105, 200, { align: 'center' });
@@ -70,58 +93,68 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
         setError('');
 
         try {
-            // 1. Inativar Inquilino (set property=null)
+            // 1. Update Tenant: tenant_status = 'ex_inquilino', property_id = null
             if (tenant) {
                 const { error: tErr } = await supabase
                     .from('tenants')
                     .update({
-                        status: 'inactive',
+                        // tenant_status é atualizado automaticamente pelo trigger fn_auto_set_tenant_status
                         property_id: null,
-                        leave_date: leaveDate
+                        leave_date: leaveDate,
                     })
                     .eq('id', tenant.id);
                 if (tErr) throw tErr;
             }
 
-            // 2. Encerrar Contrato Ativo
+            // 2. Update Contract: status = 'encerrado' or 'rescindido'
             if (contract) {
                 const { error: cErr } = await supabase
                     .from('contracts')
                     .update({
-                        status: 'closed',
-                        end_date: leaveDate
+                        status: terminationType,
+                        end_date: leaveDate,
                     })
                     .eq('id', contract.id);
                 if (cErr) throw cErr;
             }
 
-            // 3. Atualizar Imóvel para Disponível (Liberar Imóvel)
+            // 3. Update Property: status = 'available'
             const { error: pErr } = await supabase
                 .from('properties')
-                .update({
-                    status: 'available'
-                    // Note: In Aluga Fácil, properties does not have tenant_id natively, it relies on tenants referencing it.
-                })
+                .update({ status: 'available' })
                 .eq('id', property.id);
             if (pErr) throw pErr;
 
-            // 4. Salvar Histórico if we have some link
+            // 4. Record in termination_history
+            if (tenant) {
+                await supabase.from('termination_history').insert({
+                    tenant_id: tenant.id,
+                    property_id: property.id,
+                    contract_id: contract?.id || null,
+                    termination_reason: reason,
+                    termination_type: terminationType,
+                    observations: notes,
+                    ended_by: user?.name || user?.email || 'Proprietário',
+                    ended_at: new Date(leaveDate).toISOString(),
+                });
+            }
+
+            // 5. Also save to rental_history for backward compatibility
             if (tenant && contract) {
-                const { error: hErr } = await supabase
-                    .from('rental_history')
-                    .insert({
+                try {
+                    await supabase.from('rental_history').insert({
                         property_id: property.id,
                         tenant_id: tenant.id,
                         contract_id: contract.id,
                         start_date: contract.startDate,
                         leave_date: leaveDate,
                         reason: reason,
-                        notes: notes
+                        notes: notes,
                     });
-                if (hErr) throw hErr;
+                } catch (_) { }
             }
 
-            // Automatically generate PDF
+            // 6. Generate PDF
             handleGeneratePdf();
 
             onSuccess();
@@ -133,18 +166,9 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
         }
     };
 
-    const REASONS = [
-        'Fim do contrato',
-        'Mudança',
-        'Despejo',
-        'Distrato',
-        'Venda do imóvel',
-        'Outro'
-    ];
-
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 max-w-lg w-full relative shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 max-w-lg w-full relative shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
                 <button
                     onClick={onClose}
                     disabled={loading}
@@ -158,13 +182,13 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
                         <AlertTriangle size={24} />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Encerrar Locação</h2>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Encerrar Contrato</h2>
                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{property.name}</p>
                     </div>
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6 text-sm text-amber-800 dark:text-amber-400">
-                    <strong>Aviso:</strong> Esta ação removerá o vínculo do inquilino com o imóvel, encerrará o contrato ativo e deixará o imóvel <strong>Disponível</strong>, porém manterá todo o histórico intacto.
+                    <strong>Atenção:</strong> Esta ação removerá o vínculo do inquilino com o imóvel, encerrará o contrato e deixará o imóvel <strong>Disponível</strong>. O histórico será mantido intacto.
                 </div>
 
                 {error && (
@@ -174,6 +198,42 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Tipo de Encerramento */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Tipo de Encerramento
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setTerminationType('encerrado')}
+                                disabled={loading}
+                                className={`flex flex-col items-center p-4 rounded-2xl border-2 font-bold text-sm transition-all ${terminationType === 'encerrado'
+                                    ? 'border-slate-500 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-white'
+                                    : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
+                                    }`}
+                            >
+                                <span className="text-2xl mb-1">⚫</span>
+                                Encerrado
+                                <span className="text-xs font-normal mt-1 text-slate-500">Fim normal</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTerminationType('rescindido')}
+                                disabled={loading}
+                                className={`flex flex-col items-center p-4 rounded-2xl border-2 font-bold text-sm transition-all ${terminationType === 'rescindido'
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                                    : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
+                                    }`}
+                            >
+                                <span className="text-2xl mb-1">🔴</span>
+                                Rescindido
+                                <span className="text-xs font-normal mt-1 text-slate-500">Antes do prazo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Data da Saída */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Data da Saída</label>
                         <div className="relative">
@@ -189,28 +249,35 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
                         </div>
                     </div>
 
+                    {/* Motivo da Saída */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Motivo da Saída</label>
-                        <select
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            disabled={loading}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                        >
-                            {REASONS.map(r => (
-                                <option key={r} value={r}>{r}</option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                disabled={loading}
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none"
+                            >
+                                {TERMINATION_REASONS.map((r) => (
+                                    <option key={r} value={r}>{r}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                        </div>
                     </div>
 
+                    {/* Observações */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Observações (opcional)</label>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Observações <span className="text-slate-400 font-normal">(opcional)</span>
+                        </label>
                         <textarea
                             disabled={loading}
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
-                            placeholder="Ex: Entregou as chaves para a portaria. Pendência no reparo da janela."
+                            placeholder="Ex: Entregou as chaves. Pendência no reparo da janela."
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
                         />
                     </div>
@@ -227,13 +294,17 @@ export function TerminateRentalModal({ isOpen, onClose, property, tenant, contra
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                            className={`flex-1 px-4 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${terminationType === 'rescindido'
+                                ? 'bg-red-600 hover:bg-red-700 text-white'
+                                : 'bg-slate-700 hover:bg-slate-800 text-white'
+                                }`}
                         >
                             {loading ? (
                                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    <FileText size={18} /> Confirmar & Gerar PDF
+                                    <FileText size={18} />
+                                    {terminationType === 'rescindido' ? 'Rescindir & Gerar PDF' : 'Encerrar & Gerar PDF'}
                                 </>
                             )}
                         </button>

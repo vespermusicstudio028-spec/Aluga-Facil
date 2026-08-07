@@ -64,68 +64,38 @@ export function LinkTenantModal({ isOpen, property, onClose, onSuccess }: LinkTe
         if (!user) return;
         setIsLoadingTenants(true);
         try {
-            // Get all tenants for this owner
+            // Busca apenas inquilinos SEM imóvel vinculado (property_id nulo)
             const { data: tenants, error: tErr } = await supabase
                 .from('tenants')
                 .select('*')
-                .eq('owner_id', user.uid);
+                .eq('owner_id', user.uid)
+                .is('property_id', null); // somente sem imóvel
 
             if (tErr) throw tErr;
 
-            // Check which tenants have active contracts
-            const { data: activeContracts } = await supabase
-                .from('contracts')
-                .select('tenant_id')
-                .eq('owner_id', user.uid)
-                .in('status', ['active', 'signed_all', 'signed_tenant', 'pending']);
-
-            const activeTenantIds = new Set((activeContracts || []).map((c: any) => c.tenant_id));
-
-            // Filter: exclude tenants already linked to an active contract
-            const eligible = (tenants || []).filter((t: any) => {
-                const hasActiveContract = activeTenantIds.has(t.id);
-                if (hasActiveContract) return false;
-                // Also filter out active tenants currently linked to a property
-                if (t.status === 'active' && t.property_id) return false;
-                return true;
-            });
-
-            // Fetch last property name for ex-tenants
-            const enriched: TenantWithHistory[] = await Promise.all(
-                eligible.map(async (t: any) => {
-                    let lastPropertyName: string | undefined;
-                    if (t.property_id) {
-                        const { data: prop } = await supabase
-                            .from('properties')
-                            .select('name')
-                            .eq('id', t.property_id)
-                            .single();
-                        lastPropertyName = prop?.name;
-                    }
-                    return {
-                        id: t.id,
-                        ownerId: t.owner_id,
-                        propertyId: t.property_id,
-                        residents: t.residents || [],
-                        paymentMethod: t.payment_method,
-                        pixKey: t.pix_key,
-                        dueDay: t.due_day,
-                        leaseTerm: t.lease_term,
-                        startDate: t.start_date,
-                        endDate: t.end_date,
-                        signature: t.signature,
-                        ownerSignature: t.owner_signature,
-                        contractAccepted: t.contract_accepted,
-                        contractPdf: t.contract_pdf,
-                        status: t.status,
-                        leaveDate: t.leave_date,
-                        entryDate: t.entry_date,
-                        createdAt: t.created_at,
-                        updatedAt: t.updated_at,
-                        lastPropertyName,
-                    };
-                })
-            );
+            const enriched: TenantWithHistory[] = (tenants || []).map((t: any) => ({
+                id: t.id,
+                ownerId: t.owner_id,
+                propertyId: t.property_id,
+                residents: t.residents || [],
+                paymentMethod: t.payment_method,
+                pixKey: t.pix_key,
+                dueDay: t.due_day,
+                leaseTerm: t.lease_term,
+                startDate: t.start_date,
+                endDate: t.end_date,
+                signature: t.signature,
+                ownerSignature: t.owner_signature,
+                contractAccepted: t.contract_accepted,
+                contractPdf: t.contract_pdf,
+                status: t.status,
+                tenantStatus: t.tenant_status,
+                leaveDate: t.leave_date,
+                entryDate: t.entry_date,
+                createdAt: t.created_at,
+                updatedAt: t.updated_at,
+                lastPropertyName: undefined,
+            }));
 
             setAvailableTenants(enriched);
         } catch (e) {
@@ -160,11 +130,11 @@ export function LinkTenantModal({ isOpen, property, onClose, onSuccess }: LinkTe
                 .eq('id', property.id);
             if (propErr) throw propErr;
 
-            // 2. Update tenant → active + link to property
+            // 2. Update tenant → vincular ao imóvel
+            // O trigger fn_auto_set_tenant_status definirá tenant_status = 'ativo' automaticamente
             const { error: tenErr } = await supabase
                 .from('tenants')
                 .update({
-                    status: 'active',
                     property_id: property.id,
                     entry_date: new Date(entryDate).toISOString(),
                     updated_at: now,

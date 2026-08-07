@@ -62,6 +62,8 @@ export interface Resident {
   };
 }
 
+export type TenantStatus = 'ativo' | 'sem_imovel' | 'ex_inquilino' | 'bloqueado';
+
 export interface Tenant {
   id: string;
   ownerId: string;
@@ -78,6 +80,7 @@ export interface Tenant {
   contractAccepted?: boolean;
   contractPdf?: string;
   status?: 'active' | 'inactive' | 'ex_tenant';
+  tenantStatus?: TenantStatus;
   leaveDate?: string;
   entryDate?: string;
   createdAt: string;
@@ -97,7 +100,63 @@ export interface RentalHistory {
   createdAt: string;
 }
 
-export type ContractStatus = 'pending' | 'signed_tenant' | 'signed_all' | 'active' | 'closed';
+export interface TerminationHistory {
+  id: string;
+  tenantId?: string;
+  propertyId?: string;
+  contractId?: string;
+  terminationReason: string;
+  terminationType: 'encerrado' | 'rescindido';
+  observations?: string;
+  endedBy?: string;
+  endedAt: string;
+  createdAt: string;
+}
+
+// Legacy status kept for backward compatibility
+export type ContractStatus =
+  | 'pending'
+  | 'signed_tenant'
+  | 'signed_all'
+  | 'active'
+  | 'closed'
+  // New professional statuses
+  | 'ativo'
+  | 'encerrado'
+  | 'rescindido'
+  | 'cancelado'
+  | 'em_renovacao';
+
+export interface ContractOptions {
+  allowsPets: boolean;
+  hasGarage: boolean;
+  includesWater: boolean;
+  includesCondo: boolean;
+  includesIptu: boolean;
+  includesInternet: boolean;
+  includesEnergy: boolean;
+  includesGas: boolean;
+  allowsPainting: boolean;
+  allowsRenovation: boolean;
+  allowsSublease: boolean;
+  isFurnished: boolean;
+  requiresInsurance: boolean;
+}
+
+export interface InspectionData {
+  photos: string[];
+  videos: string[];
+  notes: string;
+  checklist: {
+    keysDelivered: boolean;
+    remoteDelivered: boolean;
+    tagDelivered: boolean;
+    waterRegularized: boolean;
+    energyRegularized: boolean;
+    gasRegularized: boolean;
+    propertyInspected: boolean;
+  };
+}
 
 export interface Contract {
   id: string;
@@ -113,6 +172,11 @@ export interface Contract {
   paymentMethod: 'PIX' | 'Transferência' | 'Boleto';
   pixKey?: string;
   status: ContractStatus;
+
+  // New features
+  options?: ContractOptions;
+  inspectionData?: InspectionData;
+  observations?: string;
 
   // Signature data
   tenantSignature?: string;

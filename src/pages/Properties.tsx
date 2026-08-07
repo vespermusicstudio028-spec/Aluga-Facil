@@ -28,6 +28,7 @@ import { useViaCEP } from '../hooks/useViaCEP';
 import { Property, PropertyStatus } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { ContractStatusBadge } from '../components/StatusBadge';
 import DocumentVault from '../components/DocumentVault';
 import { TerminateRentalModal } from '../components/TerminateRentalModal';
 import { LinkTenantModal } from '../components/LinkTenantModal';
@@ -134,7 +135,7 @@ export default function Properties() {
 
   const [propertyToLink, setPropertyToLink] = useState<Property | null>(null);
   // Cache: property id → active tenant data (card display)
-  const [rentedTenantCache, setRentedTenantCache] = useState<Record<string, { name: string; phone: string; contractId?: string }>>({});
+  const [rentedTenantCache, setRentedTenantCache] = useState<Record<string, { name: string; phone: string; contractId?: string; contractStatus?: string; contractEndDate?: string; }>>({});
   // Full tenant details loaded when modal opens for a rented property
   const [modalTenantData, setModalTenantData] = useState<{
     residents: Array<{ name: string; phone: string; email?: string; cpf?: string; isTitular?: boolean }>;
@@ -216,21 +217,27 @@ export default function Properties() {
   const fetchRentedTenants = useCallback(async (props: Property[]) => {
     const rented = props.filter(p => p.status === 'rented');
     if (rented.length === 0) return;
-    const cache: Record<string, { name: string; phone: string; contractId?: string }> = {};
+    const cache: Record<string, { name: string; phone: string; contractId?: string; contractStatus?: string; contractEndDate?: string; }> = {};
     await Promise.all(rented.map(async (p) => {
       const { data: tenants } = await supabase
         .from('tenants').select('id, residents, property_id')
-        .eq('property_id', p.id).eq('status', 'active').limit(1);
+        .eq('property_id', p.id)
+        .or('status.eq.active,status.is.null')
+        .limit(1);
       if (tenants && tenants.length > 0) {
         const t = tenants[0];
         const titular = (t.residents || []).find((r: any) => r.isTitular);
         const { data: contracts } = await supabase
-          .from('contracts').select('id')
-          .eq('property_id', p.id).neq('status', 'closed').limit(1);
+          .from('contracts').select('id, status, end_date')
+          .eq('property_id', p.id)
+          .or('status.neq.closed,status.is.null')
+          .limit(1);
         cache[p.id] = {
           name: titular?.name || 'Inquilino',
           phone: titular?.phone || '',
           contractId: contracts?.[0]?.id,
+          contractStatus: contracts?.[0]?.status,
+          contractEndDate: contracts?.[0]?.end_date,
         };
       }
     }));
@@ -243,12 +250,21 @@ export default function Properties() {
 
   const handleOpenTerminateModal = async (property: Property) => {
     try {
-      const { data: tenants } = await supabase.from('tenants').select('*').eq('property_id', property.id).neq('status', 'inactive');
+      const { data: tenants } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('property_id', property.id)
+        .or('status.neq.inactive,status.is.null');
+
       const tenant = tenants && tenants.length > 0 ? tenants[0] : null;
 
       let contract = null;
       if (tenant) {
-        const { data: contracts } = await supabase.from('contracts').select('*').eq('tenant_id', tenant.id).neq('status', 'closed');
+        const { data: contracts } = await supabase
+          .from('contracts')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .or('status.neq.closed,status.is.null');
         contract = contracts && contracts.length > 0 ? contracts[0] : null;
       }
 
@@ -818,12 +834,30 @@ export default function Properties() {
                 </div>
                 <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                   {p.status === 'rented' && rentedTenantCache[p.id] ? (
-                    <div className="flex-1 mr-4">
+                    <div className="flex-1 mr-2 min-w-0">
                       <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Inquilino Atual</p>
                       <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{rentedTenantCache[p.id].name}</p>
-                      {rentedTenantCache[p.id].phone && (
-                        <p className="text-xs text-slate-500">{rentedTenantCache[p.id].phone}</p>
-                      )}
+
+                      <div className="flex flex-wrap gap-2 mt-1.5 items-center">
+                        {rentedTenantCache[p.id].contractStatus && (
+                          <ContractStatusBadge status={rentedTenantCache[p.id].contractStatus} size="sm" />
+                        )}
+                        {(() => {
+                          const endDate = rentedTenantCache[p.id].contractEndDate;
+                          if (!endDate) return null;
+                          const daysLeft = Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+                          let colorClass = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+                          if (daysLeft < 0) colorClass = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
+                          else if (daysLeft <= 30) colorClass = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+
+                          return (
+                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${colorClass}`}>
+                              {daysLeft < 0 ? 'Vencido' : daysLeft === 0 ? 'Vence hoje' : `${daysLeft} dias restantes`}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   ) : (
                     <div>
@@ -1312,13 +1346,7 @@ export default function Properties() {
         )}
       </AnimatePresence>
 
-      <Link
-        to="/tenants"
-        className="fixed bottom-24 right-6 z-40 bg-secondary text-white w-14 h-14 rounded-full shadow-2xl hover:bg-opacity-90 hover:scale-110 transition-all flex items-center justify-center"
-        title="Ir para Inquilinos"
-      >
-        <Users size={24} />
-      </Link>
+
       <TerminateRentalModal
         isOpen={!!propertyToTerminate}
         property={propertyToTerminate!}

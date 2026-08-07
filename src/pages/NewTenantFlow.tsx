@@ -71,22 +71,65 @@ export default function NewTenantFlow() {
       .catch(() => setUserIp('Não detectado'));
   }, []);
 
-  useEffect(() => {
-    if (!startDate) return;
-
-    const term = leaseTerm === 'other' ? parseInt(customLeaseTerm) : parseInt(leaseTerm);
-    if (!isNaN(term)) {
-      const date = new Date(startDate + 'T00:00:00');
-      date.setMonth(date.getMonth() + term);
-      // Usually, the contract ends the day before (e.g. 1 year later)
-      // but adding exact months is standard for simple calculation unless specified.
-      // Let's adjust to be the day before for precision (e.g. 01/01/2024 -> 01/01/2025 is technically 1 year and 1 day if inclusive)
-      // However, usually it's e.g. 12 months = 01/01 to 01/01 of next year or 31/12.
-      // I will subtract one day to make it "until the day before" which is more common in Brazilian rental contracts.
+  const recalculateEndDate = (start: string, term: string, customTerm: string) => {
+    if (!start) return '';
+    const t = term === 'other' ? parseInt(customTerm) : parseInt(term);
+    if (!isNaN(t)) {
+      const date = new Date(start + 'T00:00:00');
+      date.setMonth(date.getMonth() + t);
       date.setDate(date.getDate() - 1);
-      setEndDate(date.toISOString().split('T')[0]);
+      return date.toISOString().split('T')[0];
     }
-  }, [startDate, leaseTerm, customLeaseTerm]);
+    return '';
+  };
+
+  const handleLeaseTermChange = (term: string) => {
+    setLeaseTerm(term);
+    const newEnd = recalculateEndDate(startDate, term, customLeaseTerm);
+    if (newEnd) setEndDate(newEnd);
+  };
+
+  const handleCustomLeaseTermChange = (val: string) => {
+    setCustomLeaseTerm(val);
+    const newEnd = recalculateEndDate(startDate, 'other', val);
+    if (newEnd) setEndDate(newEnd);
+  };
+
+  const handleStartDateChange = (date: string) => {
+    setStartDate(date);
+    const newEnd = recalculateEndDate(date, leaseTerm, customLeaseTerm);
+    if (newEnd) setEndDate(newEnd);
+  };
+
+  const handleEndDateChange = (newEndDate: string) => {
+    setEndDate(newEndDate);
+    if (startDate && newEndDate) {
+      const start = new Date(startDate + 'T00:00:00');
+      const end = new Date(newEndDate + 'T00:00:00');
+
+      let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (end.getDate() - start.getDate() > 15) {
+        months++;
+      }
+      if (months < 0) months = 0;
+
+      const termStr = months.toString();
+      if (['12', '24', '30'].includes(termStr)) {
+        setLeaseTerm(termStr);
+      } else {
+        setLeaseTerm('other');
+        setCustomLeaseTerm(termStr);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (startDate && !endDate) {
+      const initialEnd = recalculateEndDate(startDate, leaseTerm, customLeaseTerm);
+      if (initialEnd) setEndDate(initialEnd);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const generateRandomPassword = (index: number) => {
@@ -614,10 +657,10 @@ export default function NewTenantFlow() {
                         >
                           <div className="flex items-center gap-3">
                             <Building2 size={24} className="text-primary" />
-                            <span className="font-bold text-slate-900 dark:text-white text-lg">Vila: {group}</span>
+                            <span className="font-bold text-slate-900 dark:text-white text-lg">{group}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-500 text-sm font-bold">
-                            {groupedProperties[group].length} Casa(s)
+                            {groupedProperties[group].length} {groupedProperties[group].length === 1 ? 'Unidade' : 'Unidades'}
                             <ChevronRight size={20} className={`transition-transform ${expandedGroup === group ? 'rotate-90' : ''}`} />
                           </div>
                         </button>
@@ -928,7 +971,7 @@ export default function NewTenantFlow() {
                     {['12', '24', '30'].map((term) => (
                       <button
                         key={term}
-                        onClick={() => setLeaseTerm(term)}
+                        onClick={() => handleLeaseTermChange(term)}
                         className={`p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === term
                           ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                           : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
@@ -939,7 +982,7 @@ export default function NewTenantFlow() {
                     ))}
                     <div className="relative">
                       <button
-                        onClick={() => setLeaseTerm('other')}
+                        onClick={() => handleLeaseTermChange('other')}
                         className={`w-full p-4 rounded-2xl border-2 font-bold transition-all ${leaseTerm === 'other'
                           ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
                           : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-200'
@@ -959,7 +1002,7 @@ export default function NewTenantFlow() {
                       <input
                         type="number"
                         value={customLeaseTerm}
-                        onChange={(e) => setCustomLeaseTerm(e.target.value)}
+                        onChange={(e) => handleCustomLeaseTermChange(e.target.value)}
                         placeholder="Digite o número de meses"
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       />
@@ -973,7 +1016,7 @@ export default function NewTenantFlow() {
                     <input
                       type="date"
                       value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     />
                   </div>
@@ -982,7 +1025,7 @@ export default function NewTenantFlow() {
                     <input
                       type="date"
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                      onChange={(e) => handleEndDateChange(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                     />
                   </div>

@@ -20,9 +20,10 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Contract, Property, Tenant, ContractStatus } from '../types';
+import { Contract, Property, Tenant, ContractStatus, ContractOptions } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { ContractStatusBadge } from '../components/StatusBadge';
 
 export default function Contracts() {
   const { user } = useAuth();
@@ -34,7 +35,7 @@ export default function Contracts() {
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'closed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'closed' | 'rescindido' | 'em_renovacao' | 'cancelado'>('all');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   const [newContract, setNewContract] = useState<{
@@ -48,6 +49,8 @@ export default function Contracts() {
     paymentMethod: 'PIX' | 'Transferência' | 'Boleto';
     pixKey: string;
     status: ContractStatus;
+    options: ContractOptions;
+    generatePayments: boolean;
   }>({
     propertyId: '',
     tenantId: '',
@@ -58,7 +61,23 @@ export default function Contracts() {
     guaranteeValue: '',
     paymentMethod: 'PIX',
     pixKey: '',
-    status: 'pending'
+    status: 'pending',
+    options: {
+      allowsPets: true,
+      hasGarage: false,
+      includesWater: false,
+      includesCondo: false,
+      includesIptu: false,
+      includesInternet: false,
+      includesEnergy: false,
+      includesGas: false,
+      allowsPainting: false,
+      allowsRenovation: false,
+      allowsSublease: false,
+      isFurnished: false,
+      requiresInsurance: false,
+    },
+    generatePayments: true
   });
 
   useEffect(() => {
@@ -101,6 +120,7 @@ export default function Contracts() {
         validationHash: c.validation_hash,
         witnesses: c.witnesses,
         clauses: c.clauses,
+        options: c.options,
         inspectionUrl: c.inspection_url,
         inspectionAgreed: c.inspection_agreed,
         createdAt: c.created_at,
@@ -159,7 +179,13 @@ export default function Contracts() {
         guaranteeValue: contract.guaranteeValue.toString(),
         paymentMethod: contract.paymentMethod,
         pixKey: contract.pixKey || '',
-        status: contract.status
+        status: contract.status,
+        options: contract.options || {
+          allowsPets: true, hasGarage: false, includesWater: false, includesCondo: false,
+          includesIptu: false, includesInternet: false, includesEnergy: false, includesGas: false,
+          allowsPainting: false, allowsRenovation: false, allowsSublease: false, isFurnished: false, requiresInsurance: false
+        },
+        generatePayments: false
       });
     } else {
       setEditingContract(null);
@@ -173,7 +199,13 @@ export default function Contracts() {
         guaranteeValue: '',
         paymentMethod: 'PIX',
         pixKey: '',
-        status: 'pending'
+        status: 'pending',
+        options: {
+          allowsPets: true, hasGarage: false, includesWater: false, includesCondo: false,
+          includesIptu: false, includesInternet: false, includesEnergy: false, includesGas: false,
+          allowsPainting: false, allowsRenovation: false, allowsSublease: false, isFurnished: false, requiresInsurance: false
+        },
+        generatePayments: true
       });
     }
     setIsModalOpen(true);
@@ -196,16 +228,81 @@ export default function Contracts() {
         status: newContract.status,
         start_date: new Date(newContract.startDate).toISOString(),
         end_date: new Date(newContract.endDate).toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        options: newContract.options
       };
 
       if (editingContract) {
         await supabase.from('contracts').update(contractData).eq('id', editingContract.id);
       } else {
-        const contractNumber = `CNT-${Math.floor(100000 + Math.random() * 900000)}`;
-        await supabase.from('contracts').insert({
+        const year = new Date().getFullYear();
+        const sequencialId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const contractNumber = `ALF-${year}-${sequencialId}`;
+        const { data: newDbContract, error: insertError } = await supabase.from('contracts').insert({
           ...contractData,
           contract_number: contractNumber,
+          created_at: new Date().toISOString()
+        }).select().single();
+
+        if (insertError) throw insertError;
+
+        // Gerar parcelas se solicitado
+        if (newContract.generatePayments && newDbContract) {
+          const sDate = new Date(newContract.startDate);
+          const eDate = new Date(newContract.endDate);
+          let totalMonths = (eDate.getFullYear() - sDate.getFullYear()) * 12 + (eDate.getMonth() - sDate.getMonth());
+          if (totalMonths <= 0) totalMonths = 12; // fallback
+
+          const paymentsToInsert = [];
+          for (let i = 0; i < totalMonths; i++) {
+            const payDate = new Date(sDate.getFullYear(), sDate.getMonth() + i + 1, Number(newContract.dueDay));
+            paymentsToInsert.push({
+              owner_id: user.uid,
+              contract_id: newDbContract.id,
+              property_id: newContract.propertyId,
+              tenant_id: newContract.tenantId,
+              amount: Number(newContract.monthlyValue),
+              due_date: payDate.toISOString(),
+              status: 'pending',
+            });
+          }
+          if (paymentsToInsert.length > 0) {
+            await supabase.from('payments').insert(paymentsToInsert);
+          }
+        }
+
+        // Engatilhar eventos (Início e Renovação)
+        const eventData = [
+          {
+            owner_id: user.uid,
+            title: `Início de Locação: Contrato ${contractNumber}`,
+            type: 'visit', // ou tipo 'início' caso exista no enum custom
+            date: new Date(newContract.startDate).toISOString(),
+            status: 'scheduled',
+            property_id: newContract.propertyId,
+            tenant_id: newContract.tenantId,
+          },
+          {
+            owner_id: user.uid,
+            title: `Vencimento do Contrato ${contractNumber}`,
+            type: 'renewal',
+            date: new Date(newContract.endDate).toISOString(),
+            status: 'scheduled',
+            property_id: newContract.propertyId,
+            tenant_id: newContract.tenantId,
+          }
+        ];
+        await supabase.from('events').insert(eventData);
+
+        // Registro de log na history
+        await supabase.from('rental_history').insert({
+          owner_id: user.uid,
+          property_id: newContract.propertyId,
+          tenant_id: newContract.tenantId,
+          contract_id: newDbContract.id,
+          start_date: new Date(newContract.startDate).toISOString(),
+          leave_date: null,
+          reason: 'Início de novo contrato de locação',
           created_at: new Date().toISOString()
         });
       }
@@ -243,16 +340,7 @@ export default function Contracts() {
     }
   };
 
-  const getStatusLabel = (status: ContractStatus) => {
-    switch (status) {
-      case 'pending': return { label: 'Pendente', color: 'text-amber-500 bg-amber-50' };
-      case 'signed_tenant': return { label: 'Assinado (Inquilino)', color: 'text-blue-500 bg-blue-50' };
-      case 'signed_all': return { label: 'Assinado por Todos', color: 'text-secondary bg-secondary/10' };
-      case 'active': return { label: 'Ativo', color: 'text-emerald-500 bg-emerald-50' };
-      case 'closed': return { label: 'Encerrado', color: 'text-slate-400 bg-slate-50' };
-      default: return { label: status, color: 'text-slate-500 bg-slate-50' };
-    }
-  };
+  // getStatusLabel replaced by ContractStatusBadge component (see render)
 
   return (
     <Layout>
@@ -311,19 +399,37 @@ export default function Contracts() {
                     onClick={() => { setStatusFilter('active'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'active' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
-                    Ativos / Assinados
+                    🟢 Ativos
                   </button>
                   <button
                     onClick={() => { setStatusFilter('pending'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'pending' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
-                    Pendentes
+                    🟡 Pendentes
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('em_renovacao'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'em_renovacao' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    🔵 Em Renovação
                   </button>
                   <button
                     onClick={() => { setStatusFilter('closed'); setIsFilterMenuOpen(false); }}
                     className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'closed' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
                   >
-                    Encerrados / Distratos
+                    ⚫ Encerrados
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('rescindido'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'rescindido' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    🔴 Rescindidos
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('cancelado'); setIsFilterMenuOpen(false); }}
+                    className={`w-full px-4 py-3 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${statusFilter === 'cancelado' ? 'text-primary' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    🟠 Cancelados
                   </button>
                 </motion.div>
               </>
@@ -348,18 +454,18 @@ export default function Contracts() {
               (property?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
               (titular?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-            let groupStatus = 'all';
-            if (c.status === 'active' || c.status === 'signed_all') groupStatus = 'active';
-            else if (c.status === 'pending' || c.status === 'signed_tenant') groupStatus = 'pending';
-            else if (c.status === 'closed') groupStatus = 'closed';
-
-            const matchesStatus = statusFilter === 'all' || groupStatus === statusFilter;
-            return matchesSearch && matchesStatus;
+            let normalizedStatus = c.status;
+            if (statusFilter === 'active') return matchesSearch && (c.status === 'active' || c.status === 'ativo' || c.status === 'signed_all');
+            if (statusFilter === 'pending') return matchesSearch && (c.status === 'pending' || c.status === 'signed_tenant');
+            if (statusFilter === 'closed') return matchesSearch && (c.status === 'closed' || c.status === 'encerrado');
+            if (statusFilter === 'rescindido') return matchesSearch && c.status === 'rescindido';
+            if (statusFilter === 'em_renovacao') return matchesSearch && c.status === 'em_renovacao';
+            if (statusFilter === 'cancelado') return matchesSearch && c.status === 'cancelado';
+            return matchesSearch;
           }).map((c) => {
             const property = properties.find(p => p.id === c.propertyId);
             const tenant = tenants.find(t => t.id === c.tenantId);
             const titular = tenant?.residents.find(r => r.isTitular);
-            const status = getStatusLabel(c.status);
 
             return (
               <div key={c.id} className="group bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-8 relative hover:border-primary/30 transition-all">
@@ -371,8 +477,8 @@ export default function Contracts() {
                       </div>
                       <div>
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white">Contrato {c.contractNumber}</h3>
-                        <div className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${status.color}`}>
-                          {status.label}
+                        <div className="mt-1">
+                          <ContractStatusBadge status={c.status} size="sm" />
                         </div>
                       </div>
                     </div>
@@ -597,7 +703,58 @@ export default function Contracts() {
                     />
                   </div>
                 )}
-                <div className="pt-4 flex gap-4">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 col-span-2">
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3">Cláusulas Opcionais e Permissões</h4>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    {Object.keys(newContract.options).map((key) => {
+                      const labelMap: Record<string, string> = {
+                        allowsPets: 'Permite Animais',
+                        hasGarage: 'Possui Garagem',
+                        includesWater: 'Água Inclusa',
+                        includesCondo: 'Condomínio',
+                        includesIptu: 'IPTU',
+                        includesInternet: 'Internet',
+                        includesEnergy: 'Energia',
+                        includesGas: 'Gás',
+                        allowsPainting: 'Pintura',
+                        allowsRenovation: 'Reformas',
+                        allowsSublease: 'Sublocação',
+                        isFurnished: 'Mobiliado',
+                        requiresInsurance: 'Seguro'
+                      };
+                      return (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={(newContract.options as any)[key]}
+                            onChange={(e) => setNewContract({
+                              ...newContract,
+                              options: { ...newContract.options, [key]: e.target.checked }
+                            })}
+                            className="w-4 h-4 text-primary rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary"
+                          />
+                          <span className="text-slate-600 dark:text-slate-400 font-medium">{labelMap[key]}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {!editingContract && (
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 col-span-2">
+                    <label className="flex items-center justify-between cursor-pointer p-4 bg-primary/5 rounded-xl border border-primary/20 hover:bg-primary/10 transition-colors">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Gerar parcelas mensais automaticamente?</span>
+                      <input
+                        type="checkbox"
+                        checked={newContract.generatePayments}
+                        onChange={(e) => setNewContract({ ...newContract, generatePayments: e.target.checked })}
+                        className="w-5 h-5 text-primary rounded border-slate-300 focus:ring-primary focus:ring-offset-0"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                <div className="pt-4 flex gap-4 col-span-2">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
