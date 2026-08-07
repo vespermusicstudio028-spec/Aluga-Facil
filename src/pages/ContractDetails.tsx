@@ -43,6 +43,7 @@ export default function ContractDetails() {
   const [inspectionDraft, setInspectionDraft] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiReport, setAiReport] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('resumo');
   const [editedClauses, setEditedClauses] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const sigPad = useRef<SignatureCanvas>(null);
