@@ -12,7 +12,9 @@ import {
   Download,
   Calendar,
   RefreshCcw,
-  MessageCircle
+  MessageCircle,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +38,8 @@ export default function Payments() {
     tenant: Tenant,
     property: Property
   } | null>(null);
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -122,6 +126,18 @@ export default function Payments() {
       fetchData();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta cobrança? Esta ação não pode ser desfeita.')) return;
+    try {
+      await supabase.from('payments').delete().eq('id', paymentId);
+      fetchData();
+      setActiveDropdown(null);
+    } catch (err) {
+      console.error('Erro ao excluir pagamento:', err);
+      alert('Não foi possível excluir o pagamento.');
     }
   };
 
@@ -311,9 +327,31 @@ export default function Payments() {
                             </button>
                           )}
 
-                          <button className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg hover:bg-slate-200 transition-all">
-                            <MoreVertical size={18} />
-                          </button>
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdown(activeDropdown === p.id ? null : p.id);
+                              }}
+                              className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg hover:bg-slate-200 transition-all"
+                            >
+                              <MoreVertical size={18} />
+                            </button>
+
+                            {activeDropdown === p.id && (
+                              <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[50]">
+                                <div className="p-2">
+                                  <button
+                                    onClick={() => handleDeletePayment(p.id)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all group"
+                                  >
+                                    <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
+                                    <span>Excluir</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
