@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import {
@@ -22,6 +21,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PaymentAlerts from '../components/PaymentAlerts';
 import BillingActionModal from '../components/BillingActionModal';
+import { ensureUniqueCharge } from '../utils/paymentsUtils';
 
 export default function Payments() {
   const { user } = useAuth();
@@ -141,34 +141,37 @@ export default function Payments() {
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
 
+      let newChargesCount = 0;
+      let existingChargesCount = 0;
+
       for (const contract of (contracts || [])) {
         const dueDate = new Date(currentYear, currentMonth, contract.due_day);
 
-        const startDateStr = new Date(currentYear, currentMonth, 1).toISOString();
-        const endDateStr = new Date(currentYear, currentMonth + 1, 0).toISOString();
+        const result = await ensureUniqueCharge({
+          supabase,
+          ownerId: user.uid,
+          contractId: contract.id,
+          propertyId: contract.property_id,
+          tenantId: contract.tenant_id,
+          amount: contract.monthly_value,
+          dueDate: dueDate
+        });
 
-        const { data: existingPayments } = await supabase
-          .from('payments')
-          .select('id')
-          .eq('contract_id', contract.id)
-          .gte('due_date', startDateStr)
-          .lte('due_date', endDateStr);
-
-        const alreadyExists = existingPayments && existingPayments.length > 0;
-
-        if (!alreadyExists) {
-          await supabase.from('payments').insert({
-            owner_id: user.uid,
-            contract_id: contract.id,
-            property_id: contract.property_id,
-            tenant_id: contract.tenant_id,
-            amount: contract.monthly_value,
-            due_date: dueDate.toISOString(),
-            status: 'pending',
-            created_at: new Date().toISOString()
-          });
+        if (result.created) {
+          newChargesCount++;
+        } else if (result.existing) {
+          existingChargesCount++;
         }
       }
+
+      if (newChargesCount > 0 && existingChargesCount === 0) {
+        alert(`${newChargesCount} novas cobranças geradas com sucesso.`);
+      } else if (newChargesCount > 0 && existingChargesCount > 0) {
+        alert(`${newChargesCount} cobranças geradas. (Ignorou ${existingChargesCount} que já existiam para este mês).`);
+      } else if (existingChargesCount > 0 && newChargesCount === 0) {
+        alert(`O sistema não gerou novas cobranças pois todas as ${existingChargesCount} referentes a este mês já existem.`);
+      }
+
       fetchData();
     } catch (err) {
       console.error(err);
@@ -231,8 +234,8 @@ export default function Payments() {
             key={s}
             onClick={() => setFilter(s)}
             className={`px-6 py-2 rounded-xl font-bold text-sm transition-all capitalize ${filter === s
-                ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
+              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
               }`}
           >
             {s === 'all' ? 'Todos' : s === 'pending' ? 'Pendentes' : s === 'paid' ? 'Pagos' : 'Atrasados'}
@@ -281,7 +284,7 @@ export default function Payments() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.status === 'paid' ? 'bg-secondary/10 text-secondary' :
-                            p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
+                          p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
                           }`}>
                           {p.status === 'paid' ? 'Pago' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
                         </span>

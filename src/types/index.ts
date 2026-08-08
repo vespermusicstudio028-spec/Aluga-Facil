@@ -196,7 +196,7 @@ export interface Contract {
   updatedAt?: string;
 }
 
-export type PaymentStatus = 'paid' | 'pending' | 'late';
+export type PaymentStatus = 'paid' | 'pending' | 'late' | 'cancelled' | 'refunded';
 
 export interface Payment {
   id: string;
@@ -208,6 +208,7 @@ export interface Payment {
   dueDate: string;
   paidAt?: string;
   status: PaymentStatus;
+  competence?: string;
   receiptUrl?: string;
   createdAt: string;
   updatedAt?: string;

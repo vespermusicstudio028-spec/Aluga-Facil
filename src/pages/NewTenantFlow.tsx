@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { ensureUniqueCharge } from '../utils/paymentsUtils';
 import {
   Building2,
   Users,
@@ -516,19 +517,15 @@ export default function NewTenantFlow() {
           status: 'rented'
         }).eq('id', selectedProperty.id);
 
-        // If it's a Vila house, create an advance payment
-        if (selectedProperty.groupName && selectedProperty.groupName.trim() !== '') {
-          await supabase.from('payments').insert({
-            owner_id: user.uid,
-            property_id: selectedProperty.id,
-            tenant_id: tenantRef.id,
-            amount: Number(selectedProperty.rentValue),
-            due_date: new Date().toISOString(),
-            paid_at: new Date().toISOString(),
-            status: 'paid',
-            created_at: new Date().toISOString()
-          });
-        }
+        // Criar a primeira cobrança como PENDENTE (nunca como PAGO)
+        await ensureUniqueCharge({
+          supabase,
+          ownerId: user.uid,
+          propertyId: selectedProperty.id,
+          tenantId: tenantRef.id,
+          amount: Number(selectedProperty.rentValue),
+          dueDate: startDate ? new Date(startDate) : new Date(),
+        });
       }
 
       alert('Cadastro finalizado com sucesso!');
