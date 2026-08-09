@@ -39,6 +39,7 @@ const FILTER_LABELS: Record<FilterOption, string> = {
 
 interface TerminationRecord {
   id: string;
+  tenant_id: string;
   termination_reason: string;
   termination_type: string;
   ended_at: string;
@@ -49,6 +50,7 @@ interface TerminationRecord {
 
 interface RentalHistoryRecord {
   id: string;
+  tenant_id: string;
   property_id: string;
   start_date: string;
   leave_date?: string;
@@ -77,6 +79,7 @@ export default function Tenants() {
     type: 'deactivate' | 'delete' | 'forceDelete';
     tenantId: string;
     tenantName: string;
+    propertyName?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -189,8 +192,8 @@ export default function Tenants() {
     setConfirmAction({ type: 'delete', tenantId: id, tenantName: name });
   };
 
-  const handleDeactivate = (id: string, name: string) => {
-    setConfirmAction({ type: 'deactivate', tenantId: id, tenantName: name });
+  const handleDeactivate = (id: string, name: string, propertyName?: string) => {
+    setConfirmAction({ type: 'deactivate', tenantId: id, tenantName: name, propertyName });
   };
 
   const executeConfirmAction = async () => {
@@ -200,19 +203,28 @@ export default function Tenants() {
     if (type === 'deactivate') {
       try {
         setIsLoading(true);
-        // Atualiza apenas property_id (coluna original no schema cache).
-        // O trigger fn_auto_set_tenant_status no banco cuida de setar tenant_status = 'ex_inquilino' automaticamente.
-        const { error } = await supabase
-          .from('tenants')
-          .update({ property_id: null })
-          .eq('id', tenantId);
-        if (error) throw error;
+        if (confirmAction.propertyName) {
+          // Tem imóvel vinculado: executar encerramento transacional completo (RPC)
+          const { error } = await supabase.rpc('terminate_tenant_rental', {
+            p_tenant_id: tenantId,
+            p_owner_id: user?.uid,
+            p_reason: 'Encerramento por inativação do inquilino'
+          });
+          if (error) throw error;
+        } else {
+          // Não tem imóvel vinculado, apenas inativar do sistema
+          const { error } = await supabase
+            .from('tenants')
+            .update({ property_id: null, status: 'inactive' })
+            .eq('id', tenantId);
+          if (error) throw error;
+        }
 
-        alert('Inquilino inativado com sucesso!');
+        alert('Locação encerrada com sucesso. O inquilino foi marcado como inativo e o imóvel agora está disponível para uma nova locação.');
         fetchData();
         setConfirmAction(null);
       } catch (err: any) {
-        alert('Erro ao inativar: ' + err.message);
+        alert('Erro ao inativar/encerrar: ' + err.message);
       } finally {
         setIsLoading(false);
       }
@@ -443,7 +455,7 @@ export default function Tenants() {
                                 </button>
                                 {effectiveStatus === 'ativo' && (
                                   <button
-                                    onClick={() => { handleDeactivate(t.id, titular?.name || 'Inquilino'); setActiveMenu(null); }}
+                                    onClick={() => { handleDeactivate(t.id, titular?.name || 'Inquilino', property?.name); setActiveMenu(null); }}
                                     className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors"
                                   >
                                     <LogOut size={16} /> Marcar como Inativo
@@ -505,34 +517,71 @@ export default function Tenants() {
                                 <div className="relative">
                                   <div className="absolute left-3 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
                                   <div className="space-y-4 pl-8">
-                                    {/* Registros de rental_history */}
-                                    {hist.rentals.map((r) => (
-                                      <div key={r.id} className="relative">
-                                        <div className="absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-green-500 top-1" />
-                                        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
-                                          <div className="flex items-start justify-between gap-2 mb-2">
-                                            <div className="flex items-center gap-2">
-                                              <MapPin size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                                              <span className="font-bold text-slate-800 dark:text-white text-sm">{r.propertyName}</span>
-                                            </div>
-                                            <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">📋 Locação</span>
-                                          </div>
-                                          <p className="text-xs text-slate-500 mb-1">
-                                            <span className="font-semibold">Início:</span> {formatDate(r.start_date)}
-                                            {r.leave_date && <span> &nbsp;→&nbsp; <span className="font-semibold">Saída:</span> {formatDate(r.leave_date)}</span>}
-                                          </p>
-                                          {r.reason && (
-                                            <p className="text-xs text-slate-500 mb-1"><span className="font-semibold">Motivo:</span> {r.reason}</p>
-                                          )}
-                                          {r.notes && (
-                                            <p className="text-xs text-slate-400 italic mt-1">{r.notes}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
+                                    {/* Histórico Centralizado */}
+                                    {hist.rentals.map((r) => {
+                                      const prop = properties[r.property_id];
+                                      const address = prop?.address || '';
+                                      const rentValue = prop?.rentValue || 0;
+                                      const term = hist.terminations.find(t => t.property_id === r.property_id && t.tenant_id === r.tenant_id);
+                                      const isEnded = !!r.leave_date || !!term;
 
-                                    {/* Registros de termination_history */}
-                                    {hist.terminations.map((h) => (
+                                      return (
+                                        <div key={r.id} className="relative">
+                                          <div className={`absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 top-1 ${isEnded ? 'bg-slate-400' : 'bg-green-500'}`} />
+                                          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50">
+
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                              <div className="flex items-center gap-2">
+                                                <Home size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                                <span className="font-bold text-slate-800 dark:text-white text-[15px]">{prop?.name || r.propertyName || 'Imóvel removido'}</span>
+                                              </div>
+                                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isEnded ? 'text-slate-500 bg-slate-200 dark:bg-slate-700' : 'text-green-600 bg-green-50 dark:bg-green-900/20'}`}>
+                                                {isEnded ? 'ENCERRADO' : 'ATIVA'}
+                                              </span>
+                                            </div>
+
+                                            {address && (
+                                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mb-3">
+                                                <MapPin size={12} className="mt-0.5 flex-shrink-0" />
+                                                {address}
+                                              </p>
+                                            )}
+
+                                            <div className="grid grid-cols-2 gap-3 mb-3 p-3 bg-white dark:bg-slate-900/50 rounded-xl" style={{ border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                                              <div>
+                                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-1">Período</p>
+                                                <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                                                  {formatDate(r.start_date)} &rarr; {isEnded ? formatDate(r.leave_date || term?.ended_at) : 'Atual'}
+                                                </p>
+                                              </div>
+                                              <div>
+                                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-1">Valor</p>
+                                                <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                                                  {rentValue ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rentValue) : 'Não informado'}
+                                                </p>
+                                              </div>
+                                            </div>
+
+                                            {isEnded && (r.reason || term?.termination_reason) && (
+                                              <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 p-3 rounded-xl mt-2 relative">
+                                                <p className="text-xs text-amber-700 dark:text-amber-400 font-bold mb-1 flex items-center gap-1.5">
+                                                  <AlertCircle size={12} strokeWidth={2.5} /> Motivo do Encerramento
+                                                </p>
+                                                <p className="text-xs text-amber-600 dark:text-amber-500 leading-snug font-medium">{term?.termination_reason || r.reason}</p>
+                                                {term?.ended_at && (
+                                                  <p className="text-[10px] text-amber-500/80 mt-2 font-medium">
+                                                    Registrado em: {formatDate(term.ended_at)}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+
+                                    {/* Exibimos terminations órfãs apenas se necessário (não casadas com rentals) */}
+                                    {hist.terminations.filter(h => !hist.rentals.find(r => r.property_id === h.property_id && r.tenant_id === h.tenant_id)).map((h) => (
                                       <div key={h.id} className="relative">
                                         <div className="absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-blue-500 top-1" />
                                         <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
@@ -618,11 +667,15 @@ export default function Tenants() {
                 <AlertCircle size={32} />
               </div>
               <h3 className="text-xl font-bold text-center text-slate-900 dark:text-white mb-2">
-                {confirmAction.type === 'deactivate' ? 'Marcar como Inativo' : confirmAction.type === 'delete' ? 'Excluir Inquilino' : 'Forçar Exclusão'}
+                {confirmAction.type === 'deactivate'
+                  ? (confirmAction.propertyName ? 'Encerrar locação?' : 'Marcar como Inativo')
+                  : confirmAction.type === 'delete' ? 'Excluir Inquilino' : 'Forçar Exclusão'}
               </h3>
               <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto">
                 {confirmAction.type === 'deactivate'
-                  ? `Deseja marcar '${confirmAction.tenantName}' como Inativo? Isso removerá o vínculo com o imóvel atual, mas manterá o histórico intacto.`
+                  ? (confirmAction.propertyName
+                    ? `Este inquilino está atualmente vinculado ao imóvel ${confirmAction.propertyName}. Ao continuar, a locação será encerrada e o imóvel ficará disponível para uma nova alocação.`
+                    : `Deseja marcar '${confirmAction.tenantName}' como inativo?`)
                   : confirmAction.type === 'delete'
                     ? `Tem certeza que deseja excluir '${confirmAction.tenantName}'?`
                     : `O inquilino '${confirmAction.tenantName}' possui dados vinculados (histórico, contratos, etc).\n\nDeseja FORÇAR a exclusão apagando TUDO definitivamente?`}
@@ -643,7 +696,7 @@ export default function Tenants() {
                   className={`flex-1 py-3 px-4 rounded-xl font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2
                     ${confirmAction.type === 'deactivate' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}
                 >
-                  {isLoading ? 'Processando...' : 'Confirmar'}
+                  {isLoading ? 'Processando...' : (confirmAction.type === 'deactivate' && confirmAction.propertyName ? 'Encerrar Locação' : 'Confirmar')}
                 </button>
               </div>
             </motion.div>

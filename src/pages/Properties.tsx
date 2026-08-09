@@ -34,6 +34,15 @@ import { TerminateRentalModal } from '../components/TerminateRentalModal';
 import { LinkTenantModal } from '../components/LinkTenantModal';
 import { Tenant, Contract } from '../types';
 
+interface PropertyHistoryRecord {
+  id: string;
+  tenant_id: string;
+  tenantName: string;
+  start_date: string;
+  leave_date?: string;
+  reason?: string;
+}
+
 interface VilaHouse {
   id: string;
   number: string;
@@ -147,6 +156,8 @@ export default function Properties() {
   } | null>(null);
   // Whether modal is in view-only mode (rented property opened via 'Detalhes')
   const [viewMode, setViewMode] = useState(false);
+  const [propertyHistory, setPropertyHistory] = useState<PropertyHistoryRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [vilaHouses, setVilaHouses] = useState<VilaHouse[]>([
     { id: Date.now().toString(), number: '', rentValue: '', status: 'available', photos: [] }
@@ -298,6 +309,39 @@ export default function Properties() {
         iptuValue: property.iptuValue?.toString() || '',
         condoValue: property.condoValue?.toString() || ''
       });
+
+      // Fetch property history
+      setIsLoadingHistory(true);
+      supabase.from('rental_history')
+        .select(`
+          id,
+          tenant_id,
+          start_date,
+          leave_date,
+          reason,
+          tenants:tenant_id ( residents )
+        `)
+        .eq('property_id', property.id)
+        .order('start_date', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) console.error('history fetch err', error);
+          else {
+            const mapped: PropertyHistoryRecord[] = (data || []).map((h: any) => {
+              const titular = (h.tenants?.residents || []).find((r: any) => r.isTitular) || h.tenants?.residents?.[0];
+              return {
+                id: h.id,
+                tenant_id: h.tenant_id,
+                tenantName: titular?.name || 'Inquilino Removido',
+                start_date: h.start_date,
+                leave_date: h.leave_date,
+                reason: h.reason,
+              };
+            });
+            setPropertyHistory(mapped);
+          }
+          setIsLoadingHistory(false);
+        });
+
       // If rented, fetch detailed tenant data
       if (property.status === 'rented') {
         supabase.from('tenants')
@@ -1315,6 +1359,52 @@ export default function Properties() {
                       <option value="rented">Alugado</option>
                       <option value="maintenance">Manutenção</option>
                     </select>
+                  </div>
+                )}
+
+                {/* Histórico de Locações do Imóvel */}
+                {editingProperty && (
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-6 mt-6">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-slate-500" />
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Histórico de Locações</span>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-900">
+                      {isLoadingHistory ? (
+                        <div className="flex items-center justify-center p-4">
+                          <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        </div>
+                      ) : propertyHistory.length > 0 ? (
+                        <div className="space-y-3">
+                          {propertyHistory.map((hist) => (
+                            <div key={hist.id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-bold text-sm text-slate-800 dark:text-white">{hist.tenantName}</p>
+                                  <p className="text-xs font-semibold text-slate-500 mt-1">
+                                    {new Date(hist.start_date).toLocaleDateString('pt-BR')} &rarr; {hist.leave_date ? new Date(hist.leave_date).toLocaleDateString('pt-BR') : 'Atual'}
+                                  </p>
+                                </div>
+                                {hist.leave_date ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 dark:bg-slate-700">ENCERRADO</span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">ATIVA</span>
+                                )}
+                              </div>
+                              {hist.reason && (
+                                <p className="text-xs text-slate-500 mt-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                  <span className="font-bold">Motivo:</span> {hist.reason}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">Nenhum histórico registrado.</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
