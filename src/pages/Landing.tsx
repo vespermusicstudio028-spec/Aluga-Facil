@@ -151,6 +151,53 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      {/* FAQ */}
+      <section id="faq" className="bg-slate-50 dark:bg-slate-900 py-32">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">Perguntas Frequentes</h2>
+            <p className="text-slate-600 dark:text-slate-400">Tire suas dúvidas sobre o AlugaFácil.</p>
+          </div>
+          <div className="space-y-4">
+            {[
+              {
+                q: "Como funciona o período de teste?",
+                a: "Você pode testar o AlugaFácil gratuitamente por 7 dias, sem necessidade de cartão de crédito. Ao final do período, escolha o plano que melhor se adapta ao seu negócio."
+              },
+              {
+                q: "Posso cancelar quando quiser?",
+                a: "Sim! Não há fidelidade. Você pode cancelar sua assinatura a qualquer momento diretamente no painel, sem burocracia."
+              },
+              {
+                q: "Os dados dos meus inquilinos estão seguros?",
+                a: "Absolutamente. Utilizamos criptografia de 256 bits e infraestrutura de nível empresarial para garantir a privacidade e segurança de todos os dados."
+              },
+              {
+                q: "Posso migrar do plano Básico para o Profissional?",
+                a: "Sim, o upgrade é instantâneo. Basta acessar 'Meu Plano' no painel e selecionar o novo plano. A diferença é cobrada de forma proporcional."
+              },
+              {
+                q: "O sistema funciona em dispositivos móveis?",
+                a: "Sim! O AlugaFácil é um PWA (Progressive Web App), que pode ser instalado no seu celular como um aplicativo nativo tanto no Android quanto no iPhone."
+              },
+              {
+                q: "Como os inquilinos recebem as cobranças?",
+                a: "Você pode enviar cobranças diretamente pelo WhatsApp com um clique, utilizando nosso modal de cobrança automática que calcula juros e multa por atraso."
+              },
+            ].map((item, i) => (
+              <details key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 group overflow-hidden">
+                <summary className="flex justify-between items-center px-6 py-5 cursor-pointer font-bold text-slate-800 dark:text-white select-none list-none">
+                  {item.q}
+                  <span className="ml-4 text-primary text-xl transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <p className="px-6 pb-5 text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-4">
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-20">
