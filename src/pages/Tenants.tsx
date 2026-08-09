@@ -47,6 +47,21 @@ interface TerminationRecord {
   propertyName?: string;
 }
 
+interface RentalHistoryRecord {
+  id: string;
+  property_id: string;
+  start_date: string;
+  leave_date?: string;
+  reason?: string;
+  notes?: string;
+  propertyName?: string;
+}
+
+interface TenantHistoryData {
+  terminations: TerminationRecord[];
+  rentals: RentalHistoryRecord[];
+}
+
 export default function Tenants() {
   const { user } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -57,7 +72,7 @@ export default function Tenants() {
   const [statusFilter, setStatusFilter] = useState<FilterOption>('all');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
-  const [tenantHistories, setTenantHistories] = useState<Record<string, TerminationRecord[]>>({});
+  const [tenantHistories, setTenantHistories] = useState<Record<string, TenantHistoryData>>({});
   const [confirmAction, setConfirmAction] = useState<{
     type: 'deactivate' | 'delete' | 'forceDelete';
     tenantId: string;
@@ -127,28 +142,44 @@ export default function Tenants() {
     }
   };
 
-  const fetchTenantHistory = async (tenantId: string) => {
+  const fetchTenantHistory = async (tenantId: string, forceOpen = false) => {
+    // Se já foi carregado, só faz toggle (ou força abertura se vier do menu)
     if (tenantHistories[tenantId]) {
-      setExpandedHistory(expandedHistory === tenantId ? null : tenantId);
+      if (forceOpen) {
+        setExpandedHistory(tenantId);
+      } else {
+        setExpandedHistory(expandedHistory === tenantId ? null : tenantId);
+      }
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('termination_history')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('ended_at', { ascending: false });
+      const [terminationRes, rentalRes] = await Promise.all([
+        supabase
+          .from('termination_history')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('ended_at', { ascending: false }),
+        supabase
+          .from('rental_history')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('start_date', { ascending: false }),
+      ]);
 
-      if (error) throw error;
-
-      const historiesWithProps = (data || []).map(h => ({
+      const terminations: TerminationRecord[] = (terminationRes.data || []).map(h => ({
         ...h,
         propertyName: properties[h.property_id]?.name || 'Imóvel removido',
       }));
 
-      setTenantHistories(prev => ({ ...prev, [tenantId]: historiesWithProps }));
-      setExpandedHistory(expandedHistory === tenantId ? null : tenantId);
+      const rentals: RentalHistoryRecord[] = (rentalRes.data || []).map(r => ({
+        ...r,
+        propertyName: properties[r.property_id]?.name || 'Imóvel removido',
+      }));
+
+      const historyData: TenantHistoryData = { terminations, rentals };
+      setTenantHistories(prev => ({ ...prev, [tenantId]: historyData }));
+      setExpandedHistory(tenantId); // sempre abre ao buscar
     } catch (err) {
       console.error('Erro ao buscar histórico:', err);
     }
@@ -405,7 +436,7 @@ export default function Tenants() {
                                   <Edit2 size={16} className="text-primary" /> Editar
                                 </Link>
                                 <button
-                                  onClick={() => { fetchTenantHistory(t.id); setActiveMenu(null); }}
+                                  onClick={() => { setActiveMenu(null); fetchTenantHistory(t.id, true); }}
                                   className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
                                 >
                                   <Clock size={16} /> Ver Histórico
@@ -439,59 +470,109 @@ export default function Tenants() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
+                        style={{ overflow: 'hidden' }}
                       >
                         <div className="px-6 pb-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                           <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-4">
                             <Clock size={16} className="text-blue-500" /> Histórico de Locações
                           </h4>
-                          {history && history.length > 0 ? (
-                            <div className="relative">
-                              <div className="absolute left-3 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
-                              <div className="space-y-4 pl-8">
-                                {history.map((h, idx) => (
-                                  <div key={h.id} className="relative">
-                                    <div className="absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-blue-500 top-1" />
-                                    <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
-                                      <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="flex items-center gap-2">
-                                          <MapPin size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                                          <span className="font-bold text-slate-800 dark:text-white text-sm">{h.propertyName}</span>
-                                        </div>
-                                        <span className="text-xs font-bold text-slate-500 flex-shrink-0">{getTypeLabel(h.termination_type)}</span>
-                                      </div>
-                                      <p className="text-xs text-slate-500 mb-1">
-                                        <span className="font-semibold">Encerrado em:</span> {formatDate(h.ended_at)}
-                                      </p>
-                                      <p className="text-xs text-slate-500 mb-1">
-                                        <span className="font-semibold">Motivo:</span> {h.termination_reason}
-                                      </p>
-                                      {h.observations && (
-                                        <p className="text-xs text-slate-400 italic mt-1">{h.observations}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+
+                          {/* Caso os dados ainda não tenham sido carregados */}
+                          {!tenantHistories[t.id] ? (
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              Carregando histórico...
                             </div>
                           ) : (
-                            <p className="text-sm text-slate-500 italic">Nenhum histórico de encerramento encontrado.</p>
+                            (() => {
+                              const hist = tenantHistories[t.id];
+                              const hasTerminations = hist.terminations.length > 0;
+                              const hasRentals = hist.rentals.length > 0;
+
+                              if (!hasTerminations && !hasRentals) {
+                                return (
+                                  <div className="text-center py-6">
+                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                                      <Clock size={20} className="text-slate-400" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Sem histórico registrado</p>
+                                    <p className="text-xs text-slate-400 mt-1">Nenhuma locação anterior encontrada para este inquilino.</p>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="relative">
+                                  <div className="absolute left-3 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
+                                  <div className="space-y-4 pl-8">
+                                    {/* Registros de rental_history */}
+                                    {hist.rentals.map((r) => (
+                                      <div key={r.id} className="relative">
+                                        <div className="absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-green-500 top-1" />
+                                        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
+                                          <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <MapPin size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                              <span className="font-bold text-slate-800 dark:text-white text-sm">{r.propertyName}</span>
+                                            </div>
+                                            <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">📋 Locação</span>
+                                          </div>
+                                          <p className="text-xs text-slate-500 mb-1">
+                                            <span className="font-semibold">Início:</span> {formatDate(r.start_date)}
+                                            {r.leave_date && <span> &nbsp;→&nbsp; <span className="font-semibold">Saída:</span> {formatDate(r.leave_date)}</span>}
+                                          </p>
+                                          {r.reason && (
+                                            <p className="text-xs text-slate-500 mb-1"><span className="font-semibold">Motivo:</span> {r.reason}</p>
+                                          )}
+                                          {r.notes && (
+                                            <p className="text-xs text-slate-400 italic mt-1">{r.notes}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    {/* Registros de termination_history */}
+                                    {hist.terminations.map((h) => (
+                                      <div key={h.id} className="relative">
+                                        <div className="absolute -left-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-blue-500 top-1" />
+                                        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
+                                          <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <MapPin size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                              <span className="font-bold text-slate-800 dark:text-white text-sm">{h.propertyName}</span>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500 flex-shrink-0">{getTypeLabel(h.termination_type)}</span>
+                                          </div>
+                                          <p className="text-xs text-slate-500 mb-1">
+                                            <span className="font-semibold">Encerrado em:</span> {formatDate(h.ended_at)}
+                                          </p>
+                                          <p className="text-xs text-slate-500 mb-1">
+                                            <span className="font-semibold">Motivo:</span> {h.termination_reason}
+                                          </p>
+                                          {h.observations && (
+                                            <p className="text-xs text-slate-400 italic mt-1">{h.observations}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()
                           )}
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  {/* History toggle button */}
-                  {(t.tenantStatus === 'ex_inquilino' || t.status === 'inactive') && (
-                    <button
-                      onClick={() => fetchTenantHistory(t.id)}
-                      className="w-full px-6 py-3 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-slate-500 hover:text-primary flex items-center justify-center gap-1 transition-colors"
-                    >
-                      {isHistoryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      {isHistoryOpen ? 'Ocultar Histórico' : 'Ver Histórico de Locações'}
-                    </button>
-                  )}
+                  {/* History toggle button - visível para todos os inquilinos */}
+                  <button
+                    onClick={() => fetchTenantHistory(t.id)}
+                    className="w-full px-6 py-3 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-slate-500 hover:text-primary flex items-center justify-center gap-1 transition-colors"
+                  >
+                    {isHistoryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {isHistoryOpen ? 'Ocultar Histórico' : 'Ver Histórico de Locações'}
+                  </button>
 
                   {/* Document Vault */}
                   <div className="px-6 pb-4">
