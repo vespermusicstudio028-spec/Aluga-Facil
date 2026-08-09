@@ -221,6 +221,14 @@ export default function Tenants() {
         }
 
         alert('Locação encerrada com sucesso. O inquilino foi marcado como inativo e o imóvel agora está disponível para uma nova locação.');
+
+        // Invalida o cache do histórico do inquilino
+        setTenantHistories(prev => {
+          const newState = { ...prev };
+          delete newState[tenantId];
+          return newState;
+        });
+
         fetchData();
         setConfirmAction(null);
       } catch (err: any) {
