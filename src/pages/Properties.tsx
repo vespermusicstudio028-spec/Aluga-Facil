@@ -301,7 +301,7 @@ export default function Properties() {
       // If rented, fetch detailed tenant data
       if (property.status === 'rented') {
         supabase.from('tenants')
-          .select('residents, entry_date, due_day')
+          .select('residents, start_date, due_day')
           .eq('property_id', property.id)
           .eq('owner_id', user?.uid)
           .order('created_at', { ascending: false })
@@ -320,7 +320,7 @@ export default function Properties() {
                 const c = contracts?.[0];
                 setModalTenantData({
                   residents: t?.residents || [],
-                  entryDate: t?.entry_date,
+                  entryDate: t?.start_date,
                   rentValue: c?.monthly_value,
                   dueDay: c?.due_day || t?.due_day,
                   endDate: c?.end_date,

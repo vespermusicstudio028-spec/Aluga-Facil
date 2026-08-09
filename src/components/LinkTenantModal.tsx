@@ -91,7 +91,7 @@ export function LinkTenantModal({ isOpen, property, onClose, onSuccess }: LinkTe
                 status: t.status,
                 tenantStatus: t.tenant_status,
                 leaveDate: t.leave_date,
-                entryDate: t.entry_date,
+                entryDate: t.start_date,
                 createdAt: t.created_at,
                 updatedAt: t.updated_at,
                 lastPropertyName: undefined,
@@ -136,7 +136,7 @@ export function LinkTenantModal({ isOpen, property, onClose, onSuccess }: LinkTe
                 .from('tenants')
                 .update({
                     property_id: property.id,
-                    entry_date: new Date(entryDate).toISOString(),
+                    start_date: new Date(entryDate).toISOString(),
                     updated_at: now,
                 })
                 .eq('id', selectedTenant.id);
@@ -223,7 +223,7 @@ export function LinkTenantModal({ isOpen, property, onClose, onSuccess }: LinkTe
                     tenant_id: selectedTenant.id,
                     contract_id: contractId || null,
                     start_date: new Date(entryDate).toISOString(),
-                    leave_date: new Date(entryDate).toISOString(), // placeholder until termination
+                    leave_date: null, // placeholder until termination (null means active rental)
                     reason: 'Novo vínculo',
                     notes: `Vinculado via Vincular Inquilino. ${obs}`,
                     created_at: now,
