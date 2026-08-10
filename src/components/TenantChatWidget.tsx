@@ -143,16 +143,18 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
   useEffect(() => {
     if (!tenant?.id || !tenant?.ownerId) return;
 
+    // Canal com nome único por montagem para evitar colisão
+    const channelName = `tenant_chat_${tenant.id}_${Date.now()}`;
+
     const loadMessages = async () => {
       if (!tenant?.id || !tenant?.ownerId) return;
-      const { data, error } = await supabase.rpc('get_chat_messages', {
+      const { data } = await supabase.rpc('get_chat_messages', {
         p_owner_id: tenant.ownerId,
         p_tenant_id: tenant.id
       });
       const msgs = Array.isArray(data) ? data : (data ? JSON.parse(typeof data === 'string' ? data : JSON.stringify(data)) : []);
 
       setMessages(prev => {
-        // Se as pontas e tamanhos são os mesmos, poupa re-render excessivo
         if (prev.length === msgs.length && prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id) return prev;
         return msgs;
       });
@@ -164,14 +166,12 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
     isFirstLoadRef.current = true;
     loadMessages();
 
-    // Sincronização Ativa (Polling)
-    const syncInterval = setInterval(() => {
-      loadMessages();
-    }, 3000);
+    // Polling de segurança a cada 5s
+    const syncInterval = setInterval(loadMessages, 5000);
 
-    // Subscribe to new messages
-    if (channelRef.current) supabase.removeChannel(channelRef.current);
-    channelRef.current = supabase.channel(`tenant_chat_${tenant.id}`)
+    // Realtime — cria canal com nome único para evitar "after subscribe()" error
+    const channel = supabase
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -179,9 +179,7 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
         filter: `tenant_id=eq.${tenant.id}`
       }, (payload) => {
         const msg = payload.new as ChatMessage;
-        // Inquilino ignora suas próprias mensagens via Realtime
         if (msg.sender_role === 'tenant') return;
-
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -192,11 +190,14 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
       })
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       clearInterval(syncInterval);
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      supabase.removeChannel(channel);
     };
   }, [tenant]);
+
 
   // Read messages when open
   useEffect(() => {
