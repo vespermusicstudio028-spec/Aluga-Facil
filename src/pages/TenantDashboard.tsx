@@ -182,28 +182,74 @@ export default function TenantDashboard() {
   };
 
   const TopBar = () => (
-    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-20 flex justify-between items-center md:hidden">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-          <Home size={20} />
+    <>
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-40 flex justify-between items-center md:hidden">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+            <Home size={20} />
+          </div>
+          <div>
+            <h1 className="font-bold leading-tight">AlugaFácil</h1>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Inquilino</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-bold leading-tight">AlugaFácil</h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Inquilino</p>
+        <div className="flex items-center gap-2">
+          <button className="p-2 text-slate-400 hover:text-primary transition-colors">
+            <Bell size={20} />
+          </button>
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-slate-600 dark:text-slate-300"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-          <Bell size={20} />
-        </button>
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-slate-600 dark:text-slate-300"
-        >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-    </header>
+      </header>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden fixed top-[73px] left-0 right-0 bg-white dark:bg-slate-900 z-30 border-b border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden"
+          >
+            <nav className="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as TabType);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${isActive
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                  >
+                    <Icon size={20} />
+                    {item.label}
+                  </button>
+                );
+              })}
+              <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  <LogOut size={20} />
+                  Sair da Conta
+                </button>
+              </div>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 
   const SideBar = () => (
@@ -304,32 +350,7 @@ export default function TenantDashboard() {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 pb-safe z-30 overflow-x-auto hide-scrollbar">
-        <div className="flex justify-start items-center p-2 min-w-max px-4 gap-2">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as TabType)}
-                className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all ${isActive
-                  ? 'text-primary'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                  }`}
-              >
-                <div className={`p-1.5 rounded-xl transition-all ${isActive ? 'bg-primary/20' : ''}`}>
-                  <Icon size={isActive ? 22 : 20} strokeWidth={isActive ? 2.5 : 2} />
-                </div>
-                <span className={`text-[9px] font-bold mt-1 max-w-full truncate px-1 transition-all ${isActive ? 'opacity-100' : 'opacity-70'}`}>
-                  {item.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* Mobile Bottom Navigation removida a pedido do usuário */}
 
       {/* Widget Global do Chat - Fica sempre visível exceto na aba mensagens */}
       {tenant && ownerProfile && activeTab !== 'messages' && (
