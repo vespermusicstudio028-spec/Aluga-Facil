@@ -55,7 +55,7 @@ export default function TenantHome({ tenant, property, contract, payments, setAc
                             </p>
                             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                                 <button
-                                    onClick={() => setActiveTab('pagamentos')}
+                                    onClick={() => setActiveTab('payments')}
                                     className="w-full bg-secondary/10 text-secondary hover:bg-secondary hover:text-white transition-all py-2.5 rounded-xl font-bold flex items-center justify-center gap-2"
                                 >
                                     <Receipt size={16} />
@@ -68,7 +68,7 @@ export default function TenantHome({ tenant, property, contract, payments, setAc
                             <p className="text-emerald-500 font-bold mb-1">Tudo em dia!</p>
                             <p className="text-xs text-slate-400">Nenhum pagamento pendente foi encontrado para a competência atual.</p>
                             <button
-                                onClick={() => setActiveTab('pagamentos')}
+                                onClick={() => setActiveTab('payments')}
                                 className="w-full mt-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all py-2.5 rounded-xl font-bold text-sm"
                             >
                                 Histórico Financeiro
@@ -102,7 +102,7 @@ export default function TenantHome({ tenant, property, contract, payments, setAc
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Seu Contrato</p>
                                     <p className="font-bold text-slate-800 dark:text-white mt-0.5">Venc. Dia {contract.dueDay}</p>
                                     <button
-                                        onClick={() => setActiveTab('contrato')}
+                                        onClick={() => setActiveTab('contract')}
                                         className="text-xs font-bold text-primary mt-1 hover:underline"
                                     >
                                         Ler na íntegra &rarr;
