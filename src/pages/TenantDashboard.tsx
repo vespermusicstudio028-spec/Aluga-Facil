@@ -165,13 +165,13 @@ export default function TenantDashboard() {
         return <TenantMaintenance tenant={tenant} property={property} />;
       case 'messages':
         return (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 md:p-8 border border-slate-200 dark:border-slate-800 min-h-[70vh] flex flex-col relative overflow-hidden">
-            <div className="mb-6">
+          <div className="bg-white dark:bg-slate-900 rounded-none md:rounded-3xl p-0 md:p-8 border-0 md:border border-slate-200 dark:border-slate-800 h-[calc(100vh-73px)] md:min-h-[70vh] flex flex-col relative overflow-hidden">
+            <div className="mb-4 md:mb-6 p-4 md:p-0 border-b md:border-b-0 border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <MessageCircle className="text-primary" /> Falar com Locador
               </h3>
             </div>
-            <div className="flex-1 w-full relative">
+            <div className="flex-1 w-full relative overflow-hidden">
               <TenantChatWidget tenant={tenant} ownerInfo={ownerProfile} isEmbedded={true} />
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function TenantDashboard() {
           </div>
         </header>
 
-        <div className="p-4 md:p-8 md:max-w-6xl mx-auto pb-32 md:pb-8">
+        <div className={activeTab === 'messages' ? 'h-full md:p-8 md:max-w-6xl mx-auto' : 'p-4 md:p-8 md:max-w-6xl mx-auto pb-safe md:pb-8'}>
           {/* If location is terminated */}
           {tenant?.status === 'inactive' && activeTab !== 'documents' && activeTab !== 'profile' && activeTab !== 'home' ? (
             <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl p-8 text-center max-w-lg mx-auto mt-10">
