@@ -119,8 +119,9 @@ function AudioMessage({ url, isSender }: { url: string; isSender: boolean }) {
   );
 }
 
-export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, ownerInfo: any }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false }: { tenant: any, ownerInfo: any, isEmbedded?: boolean }) {
+  const [isOpen, setIsOpen] = useState(isEmbedded); // se embedded, começa aberto
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -340,6 +341,113 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
     }, 100);
   };
 
+
+  // ── EMBEDDED MODE: inline, sem botão flutuante ──────────────────────────
+  if (isEmbedded) {
+    return (
+      <div className="flex flex-col h-full w-full overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary to-secondary p-4 flex items-center gap-3 shadow-md shrink-0 rounded-2xl mb-3">
+          {ownerInfo?.photo ? (
+            <img src={ownerInfo.photo} alt="Proprietário" className="w-10 h-10 rounded-full object-cover border-2 border-white/20" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
+              {ownerInfo?.name?.charAt(0).toUpperCase() || 'P'}
+            </div>
+          )}
+          <div>
+            <h3 className="font-bold text-white leading-tight">{ownerInfo?.name || 'Seu Proprietário'}</h3>
+            <p className="text-white/70 text-xs">Proprietário</p>
+          </div>
+        </div>
+
+        {/* Mensagens */}
+        <div ref={containerRef} className="flex-1 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-800/30 space-y-3 rounded-2xl mb-3">
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+              <MessageSquare size={32} />
+              <p className="text-sm text-center">Inicie a conversa com o proprietário.</p>
+            </div>
+          )}
+          {messages.map(msg => {
+            const isSender = msg.sender_role === 'tenant';
+            return (
+              <div key={msg.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] px-3 py-2 rounded-2xl shadow-sm ${isSender ? 'bg-primary text-white rounded-br-sm' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-100 dark:border-slate-800 rounded-bl-sm'}`}>
+                  {msg.message_type === 'text' && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
+                  {msg.message_type === 'emoji' && <p className="text-3xl">{msg.content}</p>}
+                  {msg.message_type === 'image' && msg.media_url && (
+                    <img src={msg.media_url} alt="anexo" className="max-w-full rounded-xl max-h-40 object-cover cursor-pointer" onClick={() => window.open(msg.media_url!, '_blank')} />
+                  )}
+                  {msg.message_type === 'audio' && msg.media_url && <AudioMessage url={msg.media_url} isSender={isSender} />}
+                  <div className={`flex items-center gap-1 mt-1 justify-end ${isSender ? 'opacity-70' : 'opacity-50'}`}>
+                    <span className="text-[10px]">{formatMsgDate(msg.created_at)}</span>
+                    {isSender && (msg.read_by_owner ? <CheckCheck size={12} /> : <Check size={12} />)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 shrink-0 relative">
+          <AnimatePresence>
+            {showEmoji && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                className="absolute bottom-[70px] left-0 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden">
+                <EmojiPicker onEmojiClick={(d) => { setShowEmoji(false); sendMessage('emoji', d.emoji); }}
+                  height={300} width="100%" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="flex items-end gap-2">
+            {!recording && <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'bg-primary text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+              {showEmoji ? <X size={20} /> : <Smile size={20} />}
+            </button>}
+            {!recording && <button onClick={() => fileRef.current?.click()} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <Image size={20} />
+            </button>}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSendImage} />
+            {recording ? (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className="flex-1 bg-red-50 rounded-xl px-3 py-2 flex items-center gap-2 border border-red-200">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+                <span className="text-red-500 font-bold text-sm tabular-nums">
+                  {`${Math.floor(recordingTime / 60)}:${String(recordingTime % 60).padStart(2, '0')}`}
+                </span>
+                <span className="text-red-400 text-[11px] ml-1">Solte p/ enviar</span>
+              </motion.div>
+            ) : (
+              <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2">
+                <textarea value={text} onChange={e => setText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
+                  placeholder="Sua mensagem..." rows={1} style={{ resize: 'none' }}
+                  className="w-full bg-transparent outline-none text-slate-900 dark:text-white text-sm max-h-24 overflow-y-auto" />
+              </div>
+            )}
+            {text.trim() ? (
+              <button onClick={handleSendText} className="w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 flex-shrink-0">
+                <Send size={16} className="-ml-0.5" />
+              </button>
+            ) : (
+              <button
+                onPointerDown={handleMicPointerDown}
+                onPointerUp={handleMicPointerUp}
+                onPointerLeave={handleMicPointerUp}
+                className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all select-none touch-none ${recording ? 'bg-red-500 text-white scale-125 shadow-lg shadow-red-500/40' : 'bg-primary text-white'}`}
+              >
+                <Mic size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── FLOATING MODE (padrão) ───────────────────────────────────────────────
   return (
     <>
       {/* Botão Flutuante */}
@@ -367,6 +475,7 @@ export default function TenantChatWidget({ tenant, ownerInfo }: { tenant: any, o
             className="fixed bottom-6 right-6 w-full max-w-[360px] h-[550px] max-h-[85vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-slate-200"
           >
             {/* Header */}
+
             <div className="bg-gradient-to-r from-primary to-secondary p-4 flex items-center justify-between shadow-md shrink-0">
               <div className="flex items-center gap-3">
                 {ownerInfo?.photo ? (
