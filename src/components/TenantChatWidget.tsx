@@ -452,7 +452,7 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
   return (
     <>
       {/* Botão Flutuante */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-40">
         <button
           onClick={() => setIsOpen(true)}
           className={`w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform relative ${isOpen ? 'scale-0' : 'scale-100'}`}
@@ -473,7 +473,7 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-6 right-6 w-full max-w-[360px] h-[550px] max-h-[85vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-slate-200"
+            className="fixed bottom-24 md:bottom-6 right-4 md:right-6 w-[calc(100%-2rem)] md:w-full max-w-[360px] h-[550px] max-h-[85vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-slate-200 dark:border-slate-800"
           >
             {/* Header */}
 

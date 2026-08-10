@@ -305,9 +305,9 @@ export default function TenantDashboard() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 pb-safe z-30">
-        <div className="flex justify-around items-center p-2">
-          {NAV_ITEMS.slice(0, 5).map((item) => {
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 pb-safe z-30 overflow-x-auto hide-scrollbar">
+        <div className="flex justify-start items-center p-2 min-w-max px-4 gap-2">
+          {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
