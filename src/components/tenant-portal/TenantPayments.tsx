@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCcw, DollarSign } from 'lucide-react';
+import { RefreshCcw, DollarSign, X, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 
@@ -12,6 +12,7 @@ interface TenantPaymentsProps {
 
 export default function TenantPayments({ tenant, contract, payments, fetchData }: TenantPaymentsProps) {
     const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
+    const [selectedPayment, setSelectedPayment] = useState<any>(null);
 
     const handleGeneratePayment = async () => {
         if (!contract || !tenant || isGeneratingPayment) return;
@@ -105,7 +106,7 @@ export default function TenantPayments({ tenant, contract, payments, fetchData }
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${p.status === 'paid' ? 'bg-secondary/10 text-secondary' :
-                                                    p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
+                                                p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
                                                 }`}>
                                                 {p.status === 'paid' ? 'Pago' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
                                             </span>
@@ -118,7 +119,7 @@ export default function TenantPayments({ tenant, contract, payments, fetchData }
                                                     <span className="text-xs text-slate-400">Sem Recibo</span>
                                                 )
                                             ) : (
-                                                <button className="text-primary font-bold text-sm hover:underline">Detalhes / Pagar</button>
+                                                <button onClick={() => setSelectedPayment(p)} className="text-primary font-bold text-sm hover:underline">Detalhes / Pagar</button>
                                             )}
                                         </td>
                                     </tr>
@@ -128,6 +129,87 @@ export default function TenantPayments({ tenant, contract, payments, fetchData }
                     </div>
                 )}
             </div>
+
+            {/* Modal "Detalhes / Pagar" */}
+            {selectedPayment && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+
+                        {/* Header */}
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                            <h2 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <DollarSign size={18} className="text-secondary" />
+                                Detalhes do Pagamento
+                            </h2>
+                            <button onClick={() => setSelectedPayment(null)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Corpo */}
+                        <div className="p-6 space-y-4">
+                            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                <div className="flex justify-between text-sm mb-2">
+                                    <span className="text-slate-500">Competência</span>
+                                    <span className="font-bold dark:text-white capitalize">
+                                        {format(new Date(selectedPayment.dueDate), 'MMMM / yyyy')}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm mb-2">
+                                    <span className="text-slate-500">Vencimento</span>
+                                    <span className={`font-bold ${selectedPayment.status === 'late' || (selectedPayment.status === 'pending' && new Date(selectedPayment.dueDate) < new Date())
+                                        ? 'text-red-500'
+                                        : 'text-slate-700 dark:text-slate-300'
+                                        }`}>
+                                        {format(new Date(selectedPayment.dueDate), 'dd/MM/yyyy')}
+                                    </span>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-600 flex justify-between items-center text-lg">
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">Valor</span>
+                                    <span className="font-black text-secondary">
+                                        R$ {selectedPayment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Como Pagar</h4>
+
+                                {contract?.paymentMethod === 'PIX' || contract?.pixKey ? (
+                                    <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-4">
+                                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-2">Sua Chave PIX contratual:</p>
+                                        <div className="flex items-center gap-2">
+                                            <code className="flex-1 bg-white dark:bg-slate-900 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 font-mono truncate">
+                                                {contract?.pixKey || 'Não informada'}
+                                            </code>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(contract?.pixKey || '');
+                                                    alert('Chave PIX copiada!');
+                                                }}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors shadow-sm"
+                                                title="Copiar Chave PIX"
+                                            >
+                                                <Copy size={20} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800 rounded-xl p-4 text-sm text-orange-700 dark:text-orange-400">
+                                        Método de pagamento: <strong>{contract?.paymentMethod || 'Não definido'}</strong>.<br /><br />
+                                        Por favor, realize o depósito ou transferência na conta informada no seu contrato, ou faça contato diretamente com seu locador pela aba Mensagens.
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-2 text-[10px] text-slate-400 text-center border-t border-slate-100 dark:border-slate-800">
+                                Lembre-se de enviar o comprovante ao locador após o pagamento para dar baixa no sistema.
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
 
         </div>
     );
