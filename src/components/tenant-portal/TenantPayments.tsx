@@ -6,11 +6,12 @@ import { format } from 'date-fns';
 interface TenantPaymentsProps {
     tenant: any;
     contract: any;
+    property: any;
     payments: any[];
     fetchData: () => void;
 }
 
-export default function TenantPayments({ tenant, contract, payments, fetchData }: TenantPaymentsProps) {
+export default function TenantPayments({ tenant, contract, property, payments, fetchData }: TenantPaymentsProps) {
     const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<any>(null);
 
@@ -175,7 +176,20 @@ export default function TenantPayments({ tenant, contract, payments, fetchData }
                             <div className="space-y-3">
                                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Como Pagar</h4>
 
-                                {contract?.paymentMethod === 'PIX' || contract?.pixKey ? (
+                                {property?.paymentLink ? (
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800 rounded-xl p-4">
+                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mb-2">Pague Online com Cartão / Boleto / Pix:</p>
+                                        <a
+                                            href={property.paymentLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-sm"
+                                        >
+                                            <DollarSign size={20} />
+                                            Acessar Link de Pagamento
+                                        </a>
+                                    </div>
+                                ) : contract?.paymentMethod === 'PIX' || contract?.pixKey ? (
                                     <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-4">
                                         <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-2">Sua Chave PIX contratual:</p>
                                         <div className="flex items-center gap-2">

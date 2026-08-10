@@ -156,7 +156,7 @@ export default function TenantDashboard() {
       case 'profile':
         return <TenantProfile tenant={tenant} property={property} setTenant={setTenant} />;
       case 'payments':
-        return <TenantPayments tenant={tenant} contract={contract} payments={payments} fetchData={fetchData} />;
+        return <TenantPayments tenant={tenant} contract={contract} property={property} payments={payments} fetchData={fetchData} />;
       case 'contract':
         return <TenantContract contract={contract} tenant={tenant} property={property} ownerProfile={ownerProfile} />;
       case 'documents':

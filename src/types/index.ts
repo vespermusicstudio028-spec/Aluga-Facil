@@ -37,6 +37,7 @@ export interface Property {
   lat?: number;
   lng?: number;
   floorPlanUrl?: string;
+  paymentLink?: string;
   createdAt: string;
   updatedAt?: string;
 }

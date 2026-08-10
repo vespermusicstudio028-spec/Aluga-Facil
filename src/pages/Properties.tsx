@@ -177,7 +177,8 @@ export default function Properties() {
     parkingSpaces: '',
     area: '',
     iptuValue: '',
-    condoValue: ''
+    condoValue: '',
+    paymentLink: ''
   });
 
   useEffect(() => {
@@ -307,7 +308,8 @@ export default function Properties() {
         parkingSpaces: property.parkingSpaces?.toString() || '',
         area: property.area?.toString() || '',
         iptuValue: property.iptuValue?.toString() || '',
-        condoValue: property.condoValue?.toString() || ''
+        condoValue: property.condoValue?.toString() || '',
+        paymentLink: property.paymentLink || ''
       });
 
       // Fetch property history
@@ -377,7 +379,7 @@ export default function Properties() {
       setEditingProperty(null);
       setFormData({
         name: '', address: '', type: 'Casa', rentValue: '', status: 'available', groupName: '', photos: [],
-        zipCode: '', bedrooms: '', bathrooms: '', parkingSpaces: '', area: '', iptuValue: '', condoValue: ''
+        zipCode: '', bedrooms: '', bathrooms: '', parkingSpaces: '', area: '', iptuValue: '', condoValue: '', paymentLink: ''
       });
       setVilaHouses([{ id: Date.now().toString(), number: '', rentValue: '', status: 'available', photos: [] }]);
     }
@@ -531,6 +533,7 @@ export default function Properties() {
           area: Number(formData.area) || 0,
           iptu_value: Number(formData.iptuValue) || 0,
           condo_value: Number(formData.condoValue) || 0,
+          payment_link: formData.paymentLink,
           updated_at: new Date().toISOString()
         };
         if (editingProperty) {
@@ -1141,6 +1144,19 @@ export default function Properties() {
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
                       value={formData.groupName}
                       onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {formData.type !== 'Vila' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Link de Pagamento Padrão (Opcional)</label>
+                    <input
+                      type="url"
+                      placeholder="Ex: https://mpago.la/..."
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all dark:text-white"
+                      value={formData.paymentLink}
+                      onChange={(e) => setFormData({ ...formData, paymentLink: e.target.value })}
                     />
                   </div>
                 )}
