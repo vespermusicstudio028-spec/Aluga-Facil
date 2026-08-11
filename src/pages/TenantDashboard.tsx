@@ -167,15 +167,13 @@ export default function TenantDashboard() {
         return <TenantMaintenance tenant={tenant} property={property} />;
       case 'messages':
         return (
-          <div className="bg-white dark:bg-slate-900 rounded-none md:rounded-3xl p-0 md:p-8 border-0 md:border border-slate-200 dark:border-slate-800 h-[calc(100vh-73px)] md:min-h-[70vh] flex flex-col relative overflow-hidden">
-            <div className="mb-4 md:mb-6 p-4 md:p-0 border-b md:border-b-0 border-slate-100 dark:border-slate-800 shrink-0">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <MessageCircle className="text-primary" /> Falar com Locador
-              </h3>
-            </div>
-            <div className="flex-1 w-full relative overflow-hidden">
-              <TenantChatWidget tenant={tenant} ownerInfo={ownerProfile} isEmbedded={true} />
-            </div>
+          <div className="flex-1 flex flex-col h-[calc(100vh-73px)] md:h-screen w-full bg-slate-50 dark:bg-slate-950 md:-mt-6">
+            <TenantChatWidget
+              tenant={tenant}
+              ownerInfo={ownerProfile}
+              isEmbedded={true}
+              onBack={() => setActiveTab('home')}
+            />
           </div>
         );
       default:
@@ -292,7 +290,7 @@ export default function TenantDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col md:flex-row">
 
-      <TopBar />
+      {activeTab !== 'messages' && <TopBar />}
       <SideBar />
 
       <main className="flex-1 overflow-y-auto">
@@ -316,7 +314,7 @@ export default function TenantDashboard() {
           </div>
         </header>
 
-        <div className={activeTab === 'messages' ? 'h-full md:p-8 md:max-w-6xl mx-auto' : 'p-4 md:p-8 md:max-w-6xl mx-auto pb-safe md:pb-8'}>
+        <div className={activeTab === 'messages' ? 'flex-1 h-[calc(100vh-73px)] md:h-[calc(100vh-80px)] flex flex-col' : 'p-4 md:p-8 md:max-w-6xl mx-auto pb-safe md:pb-8'}>
           {/* If location is terminated */}
           {tenant?.status === 'inactive' && activeTab !== 'documents' && activeTab !== 'profile' && activeTab !== 'home' ? (
             <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl p-8 text-center max-w-lg mx-auto mt-10">
@@ -333,7 +331,7 @@ export default function TenantDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="min-h-[60vh] flex flex-col"
+                className={activeTab === 'messages' ? "flex-1 flex flex-col h-full" : "min-h-[60vh] flex flex-col"}
               >
                 {renderActiveTab()}
               </motion.div>

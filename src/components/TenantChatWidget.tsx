@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageSquare, X, Send, Image, Mic, MicOff, Check, CheckCheck, Play, Pause, Smile } from 'lucide-react';
+import { MessageSquare, X, Send, Image, Mic, MicOff, Check, CheckCheck, Play, Pause, Smile, ChevronLeft, Search, MoreVertical } from 'lucide-react';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -119,7 +119,7 @@ function AudioMessage({ url, isSender }: { url: string; isSender: boolean }) {
   );
 }
 
-export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false }: { tenant: any, ownerInfo: any, isEmbedded?: boolean }) {
+export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false, onBack }: { tenant: any, ownerInfo: any, isEmbedded?: boolean, onBack?: () => void }) {
   const [isOpen, setIsOpen] = useState(isEmbedded); // se embedded, começa aberto
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -346,35 +346,56 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
   // ── EMBEDDED MODE: inline, sem botão flutuante ──────────────────────────
   if (isEmbedded) {
     return (
-      <div className="flex flex-col h-full w-full overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-secondary p-4 flex items-center gap-3 shadow-md shrink-0 rounded-2xl mb-3">
-          {ownerInfo?.photo ? (
-            <img src={ownerInfo.photo} alt="Proprietário" className="w-10 h-10 rounded-full object-cover border-2 border-white/20" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
-              {ownerInfo?.name?.charAt(0).toUpperCase() || 'P'}
+      <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+        {/* Header whatsapp-style */}
+        <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2 md:p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 md:gap-4">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="md:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                aria-label="Voltar"
+              >
+                <ChevronLeft size={24} />
+              </button>
+            )}
+            {ownerInfo?.photo ? (
+              <img src={ownerInfo.photo} alt="Proprietário" className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                {ownerInfo?.name?.charAt(0).toUpperCase() || 'P'}
+              </div>
+            )}
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                {ownerInfo?.name || 'Seu Proprietário'}
+              </h3>
+              <p className="text-slate-500 text-xs font-medium">Proprietário</p>
             </div>
-          )}
-          <div>
-            <h3 className="font-bold text-white leading-tight">{ownerInfo?.name || 'Seu Proprietário'}</h3>
-            <p className="text-white/70 text-xs">Proprietário</p>
+          </div>
+          <div className="flex items-center gap-1 text-slate-500">
+            <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors hidden sm:block">
+              <Search size={20} />
+            </button>
+            <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+              <MoreVertical size={20} />
+            </button>
           </div>
         </div>
 
         {/* Mensagens */}
-        <div ref={containerRef} className="flex-1 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-800/30 space-y-3 rounded-2xl mb-3">
+        <div ref={containerRef} className="flex-1 overflow-y-auto px-4 lg:px-[10%] py-4 space-y-3 relative" style={{ backgroundImage: "url('/chat-bg.png')", backgroundSize: '400px' }}>
           {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2 opacity-50">
               <MessageSquare size={32} />
-              <p className="text-sm text-center">Inicie a conversa com o proprietário.</p>
+              <p className="text-sm text-center font-medium">Inicie a conversa com o proprietário.</p>
             </div>
           )}
           {messages.map(msg => {
             const isSender = msg.sender_role === 'tenant';
             return (
               <div key={msg.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-3 py-2 rounded-2xl shadow-sm ${isSender ? 'bg-primary text-white rounded-br-sm' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-100 dark:border-slate-800 rounded-bl-sm'}`}>
+                <div className={`max-w-[85%] px-3 py-2 shadow-sm relative ${isSender ? 'bg-[#dcf8c6] dark:bg-primary/90 text-slate-900 dark:text-white rounded-2xl rounded-tr-sm' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-100 dark:border-slate-800 rounded-2xl rounded-tl-sm'}`}>
                   {msg.message_type === 'text' && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
                   {msg.message_type === 'emoji' && <p className="text-3xl">{msg.content}</p>}
                   {msg.message_type === 'image' && msg.media_url && (
@@ -393,55 +414,61 @@ export default function TenantChatWidget({ tenant, ownerInfo, isEmbedded = false
         </div>
 
         {/* Input */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 shrink-0 relative">
-          <AnimatePresence>
-            {showEmoji && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-[70px] left-0 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden">
-                <EmojiPicker onEmojiClick={(d) => { setShowEmoji(false); sendMessage('emoji', d.emoji); }}
-                  height={300} width="100%" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <div className="flex items-end gap-2">
-            {!recording && <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'bg-primary text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-              {showEmoji ? <X size={20} /> : <Smile size={20} />}
-            </button>}
-            {!recording && <button onClick={() => fileRef.current?.click()} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-              <Image size={20} />
-            </button>}
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSendImage} />
-            {recording ? (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="flex-1 bg-red-50 rounded-xl px-3 py-2 flex items-center gap-2 border border-red-200">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
-                <span className="text-red-500 font-bold text-sm tabular-nums">
-                  {`${Math.floor(recordingTime / 60)}:${String(recordingTime % 60).padStart(2, '0')}`}
-                </span>
-                <span className="text-red-400 text-[11px] ml-1">Solte p/ enviar</span>
-              </motion.div>
-            ) : (
-              <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2">
-                <textarea value={text} onChange={e => setText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-                  placeholder="Sua mensagem..." rows={1} style={{ resize: 'none' }}
-                  className="w-full bg-transparent outline-none text-slate-900 dark:text-white text-sm max-h-24 overflow-y-auto" />
+        <div className="bg-slate-50 dark:bg-slate-950 p-2 md:p-3 shrink-0 relative mt-auto border-t border-slate-200 dark:border-slate-800 flex justify-center">
+          <div className="w-full xl:max-w-[80%] relative">
+            <AnimatePresence>
+              {showEmoji && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                  className="absolute bottom-[60px] left-0 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden md:w-96 max-w-[calc(100vw-32px)]">
+                  <EmojiPicker onEmojiClick={(d) => { setShowEmoji(false); sendMessage('emoji', d.emoji); }}
+                    height={300} width="100%" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div className="flex items-end gap-2 text-slate-500">
+              <div className="flex items-center">
+                {!recording && <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 xl:p-3 rounded-xl transition-colors ${showEmoji ? 'bg-primary/10 text-primary' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                  {showEmoji ? <X size={24} /> : <Smile size={24} />}
+                </button>}
+                {!recording && <button onClick={() => fileRef.current?.click()} className="p-2 xl:p-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                  <Image size={24} />
+                </button>}
               </div>
-            )}
-            {text.trim() ? (
-              <button onClick={handleSendText} className="w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 flex-shrink-0">
-                <Send size={16} className="-ml-0.5" />
-              </button>
-            ) : (
-              <button
-                onPointerDown={handleMicPointerDown}
-                onPointerUp={handleMicPointerUp}
-                onPointerLeave={handleMicPointerUp}
-                className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all select-none touch-none ${recording ? 'bg-red-500 text-white scale-125 shadow-lg shadow-red-500/40' : 'bg-primary text-white'}`}
-              >
-                <Mic size={16} />
-              </button>
-            )}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSendImage} />
+
+              {recording ? (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                  className="flex-1 bg-red-50 rounded-full px-4 py-3 flex items-center gap-3 border border-red-200 shadow-sm">
+                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+                  <span className="text-red-500 font-bold tabular-nums text-base">
+                    {`${Math.floor(recordingTime / 60)}:${String(recordingTime % 60).padStart(2, '0')}`}
+                  </span>
+                  <span className="text-red-400 text-xs ml-auto">Deslize p/ cancelar (em breve)</span>
+                </motion.div>
+              ) : (
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl px-4 py-2 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center">
+                  <textarea value={text} onChange={e => setText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
+                    placeholder="Digite uma mensagem..." rows={1} style={{ resize: 'none' }}
+                    className="w-full bg-transparent outline-none text-slate-900 dark:text-white max-h-24 overflow-y-auto min-h-[24px] py-1" />
+                </div>
+              )}
+
+              {text.trim() ? (
+                <button onClick={handleSendText} className="p-3 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 flex-shrink-0 shadow-md">
+                  <Send size={20} className="-ml-0.5 mt-0.5" />
+                </button>
+              ) : (
+                <button
+                  onPointerDown={handleMicPointerDown}
+                  onPointerUp={handleMicPointerUp}
+                  onPointerLeave={handleMicPointerUp}
+                  className={`p-3 rounded-full flex items-center justify-center flex-shrink-0 transition-all select-none touch-none shadow-md ${recording ? 'bg-red-500 text-white scale-125 shadow-red-500/40' : 'bg-primary text-white hover:bg-primary/90'}`}
+                >
+                  <Mic size={24} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
