@@ -89,7 +89,7 @@ export default function Contracts() {
     setIsLoading(true);
     try {
       const [conRes, propRes, tenRes] = await Promise.all([
-        supabase.from('contracts').select('*').eq('owner_id', user?.uid),
+        supabase.from('contracts').select('*').eq('owner_id', user?.uid).order('updated_at', { ascending: false }),
         supabase.from('properties').select('*').eq('owner_id', user?.uid),
         supabase.from('tenants').select('*').eq('owner_id', user?.uid)
       ]);
