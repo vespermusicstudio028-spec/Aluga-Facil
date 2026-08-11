@@ -79,32 +79,33 @@ export default function TenantDashboard() {
         });
       }
 
-      // get contract via RPC (SECURITY DEFINER bypasses RLS, reads from tenants table)
-      const { data: conSnap } = await supabase.rpc('get_tenant_contract', { p_tenant_id: t.id });
-      if (conSnap && conSnap.length > 0) {
-        const first = conSnap[0];
+      // Fetch updated tenant data to get latest signatures (since table allows public read)
+      const { data: currentTenant } = await supabase.from('tenants').select('*').eq('id', t.id).single();
+      const tenantData = currentTenant || t;
+
+      if (tenantData && (tenantData.status === 'active' || tenantData.tenant_status === 'ativo' || !tenantData.status)) {
         setContract({
-          id: first.id,
-          propertyId: first.property_id,
-          tenantId: first.id,
-          ownerId: first.owner_id,
-          startDate: first.start_date,
-          endDate: first.end_date,
-          monthlyValue: first.monthly_value,
+          id: tenantData.id,
+          propertyId: tenantData.property_id || tenantData.propertyId,
+          tenantId: tenantData.id,
+          ownerId: tenantData.owner_id || tenantData.ownerId,
+          startDate: tenantData.start_date || tenantData.startDate,
+          endDate: tenantData.end_date || tenantData.endDate,
+          monthlyValue: info?.property?.rent_value || 0,
           guaranteeValue: 0,
-          dueDay: first.due_day,
-          status: first.status,
-          contractNumber: first.contract_number,
-          paymentMethod: first.payment_method,
-          pixKey: first.pix_key,
+          dueDay: tenantData.due_day || tenantData.dueDay,
+          status: tenantData.tenant_status || tenantData.status || 'ativo',
+          contractNumber: `CONTRATO-${tenantData.id.substring(0, 8).toUpperCase()}`,
+          paymentMethod: tenantData.payment_method || tenantData.paymentMethod,
+          pixKey: tenantData.pix_key || tenantData.pixKey,
           clauses: null,
-          tenantSignature: first.tenant_signature,
-          landlordSignature: first.landlord_signature,
-          signatureDate: first.signature_date,
+          tenantSignature: tenantData.signature || tenantData.tenantSignature,
+          landlordSignature: tenantData.owner_signature || tenantData.ownerSignature,
+          signatureDate: tenantData.updated_at || tenantData.updatedAt,
           signatureIP: null,
           validationHash: null,
-          createdAt: first.created_at,
-          updatedAt: first.updated_at
+          createdAt: tenantData.created_at || tenantData.createdAt,
+          updatedAt: tenantData.updated_at || tenantData.updatedAt
         });
       } else {
         setContract(null);
