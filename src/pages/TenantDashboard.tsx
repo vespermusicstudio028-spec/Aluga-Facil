@@ -79,30 +79,30 @@ export default function TenantDashboard() {
         });
       }
 
-      // get contract via RPC (bypasses RLS so tenant can read landlord_signature)
+      // get contract via RPC (SECURITY DEFINER bypasses RLS, reads from tenants table)
       const { data: conSnap } = await supabase.rpc('get_tenant_contract', { p_tenant_id: t.id });
       if (conSnap && conSnap.length > 0) {
         const first = conSnap[0];
         setContract({
           id: first.id,
           propertyId: first.property_id,
-          tenantId: first.tenant_id,
+          tenantId: first.id,
           ownerId: first.owner_id,
           startDate: first.start_date,
           endDate: first.end_date,
           monthlyValue: first.monthly_value,
-          guaranteeValue: first.guarantee_value || 0,
+          guaranteeValue: 0,
           dueDay: first.due_day,
           status: first.status,
           contractNumber: first.contract_number,
           paymentMethod: first.payment_method,
           pixKey: first.pix_key,
-          clauses: first.clauses,
+          clauses: null,
           tenantSignature: first.tenant_signature,
           landlordSignature: first.landlord_signature,
           signatureDate: first.signature_date,
-          signatureIP: first.signature_ip,
-          validationHash: first.validation_hash,
+          signatureIP: null,
+          validationHash: null,
           createdAt: first.created_at,
           updatedAt: first.updated_at
         });
