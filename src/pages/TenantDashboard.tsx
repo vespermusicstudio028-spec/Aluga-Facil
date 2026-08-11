@@ -12,6 +12,7 @@ import TenantPayments from '../components/tenant-portal/TenantPayments';
 import TenantDocuments from '../components/tenant-portal/TenantDocuments';
 import TenantMaintenance from '../components/tenant-portal/TenantMaintenance';
 import TenantChatWidget from '../components/TenantChatWidget';
+import Logo from '../components/Logo';
 
 type TabType = 'home' | 'profile' | 'contract' | 'payments' | 'maintenance' | 'documents' | 'messages';
 
@@ -185,14 +186,9 @@ export default function TenantDashboard() {
   const TopBar = () => (
     <>
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-40 flex justify-between items-center md:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-            <Home size={20} />
-          </div>
-          <div>
-            <h1 className="font-bold leading-tight">AlugaFácil</h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Inquilino</p>
-          </div>
+        <div className="flex flex-col gap-1">
+          <Logo className="h-8" to={null} />
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 ml-1 hidden sm:block">Portal do Inquilino</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="p-2 text-slate-400 hover:text-primary transition-colors">
@@ -255,14 +251,9 @@ export default function TenantDashboard() {
 
   const SideBar = () => (
     <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen sticky top-0">
-      <div className="p-6 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-          <Home size={20} />
-        </div>
-        <div>
-          <h1 className="font-bold leading-tight">AlugaFácil</h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Portal do Inquilino</p>
-        </div>
+      <div className="p-6 flex flex-col gap-1 border-b border-slate-200 dark:border-slate-800">
+        <Logo className="h-8" to={null} />
+        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 ml-1">Portal do Inquilino</p>
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
