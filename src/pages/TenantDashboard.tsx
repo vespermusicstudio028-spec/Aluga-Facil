@@ -79,8 +79,8 @@ export default function TenantDashboard() {
         });
       }
 
-      // get contract
-      const { data: conSnap } = await supabase.from('contracts').select('*').eq('tenant_id', t.id).eq('status', 'active');
+      // get contract via RPC (bypasses RLS so tenant can read landlord_signature)
+      const { data: conSnap } = await supabase.rpc('get_tenant_contract', { p_tenant_id: t.id });
       if (conSnap && conSnap.length > 0) {
         const first = conSnap[0];
         setContract({
