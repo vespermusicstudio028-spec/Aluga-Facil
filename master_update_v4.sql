@@ -11,6 +11,5 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method TEXT;
 
 ALTER TABLE payments ADD CONSTRAINT unique_contract_competence UNIQUE (contract_id, competence);
 
--- Add auditoria event table conceptually inside this migration if requested
--- The user requested: "Criar registro de eventos financeiros".
--- But maybe later, let's stick to modifying `payments` first as requested.
+-- Habilitando emissões em tempo real do banco de dados (Realtime/WebSockets)
+ALTER PUBLICATION supabase_realtime ADD TABLE payments;
