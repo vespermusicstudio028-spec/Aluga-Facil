@@ -107,9 +107,10 @@ export default function TenantPayments({ tenant, contract, property, payments, f
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${p.status === 'paid' ? 'bg-secondary/10 text-secondary' :
-                                                p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
+                                                    p.status === 'processing' ? 'bg-blue-500/10 text-blue-500' :
+                                                        p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
                                                 }`}>
-                                                {p.status === 'paid' ? 'Pago' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
+                                                {p.status === 'paid' ? 'Pago' : p.status === 'processing' ? 'Processando' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">

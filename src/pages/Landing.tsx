@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Building2, CheckCircle2, ShieldCheck, Users, BarChart3, Smartphone, ChevronRight } from 'lucide-react';
+import { Building2, CheckCircle2, ShieldCheck, Users, BarChart3, Smartphone, ChevronRight, X, Play } from 'lucide-react';
 import Logo from '../components/Logo';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Landing() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -65,9 +66,12 @@ export default function Landing() {
             <Link to="/register" className="px-10 py-4 bg-primary text-white rounded-xl font-bold text-lg hover:scale-105 transition-transform flex items-center gap-2 shadow-xl shadow-primary/30">
               Criar Conta Grátis <ChevronRight size={20} />
             </Link>
-            <Link to="/login?demo=true" className="px-10 py-4 border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-              Ver Demonstração
-            </Link>
+            <button
+              onClick={() => setShowDemoModal(true)}
+              className="px-10 py-4 border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors flex items-center justify-center gap-2"
+            >
+              <Play size={20} className="text-primary" /> Ver Demonstração
+            </button>
           </div>
         </motion.div>
 
@@ -232,6 +236,79 @@ export default function Landing() {
           <p className="text-sm">Versão 1.2.0 • Protegido por criptografia 256-bit</p>
         </div>
       </footer>
+
+      {/* Modal de Demonstração */}
+      {showDemoModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowDemoModal(false)}>
+          <div
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="shrink-0 flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Demo Interativa</h2>
+                <p className="text-slate-500 text-sm">Conheça o AlugaFácil em ação</p>
+              </div>
+              <button
+                onClick={() => setShowDemoModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="overflow-y-auto p-6 space-y-6">
+              {/* Preview do dashboard */}
+              <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-lg">
+                <img
+                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200"
+                  alt="Dashboard AlugaFácil"
+                  className="w-full object-cover max-h-60"
+                />
+              </div>
+
+              {/* Features em destaque */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { emoji: '🏠', title: 'Imóveis', desc: 'Cadastre e monitore' },
+                  { emoji: '👥', title: 'Inquilinos', desc: 'Gestão completa' },
+                  { emoji: '📄', title: 'Contratos', desc: 'Digitais e seguros' },
+                  { emoji: '💰', title: 'Pagamentos', desc: 'Cobranças automáticas' },
+                  { emoji: '📊', title: 'Relatórios', desc: 'Dados em tempo real' },
+                  { emoji: '📱', title: 'Mobile', desc: 'App PWA nativo' },
+                ].map((f, i) => (
+                  <div key={i} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-center">
+                    <div className="text-2xl mb-1">{f.emoji}</div>
+                    <div className="font-bold text-slate-800 dark:text-white text-sm">{f.title}</div>
+                    <div className="text-slate-500 text-xs">{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Link
+                  to="/register"
+                  onClick={() => setShowDemoModal(false)}
+                  className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-center hover:bg-opacity-90 transition-all shadow-lg shadow-primary/20"
+                >
+                  Criar Conta Grátis — 7 dias gratuitos
+                </Link>
+                <Link
+                  to="/login"
+                  onClick={() => setShowDemoModal(false)}
+                  className="flex-1 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                >
+                  Já tenho conta → Entrar
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

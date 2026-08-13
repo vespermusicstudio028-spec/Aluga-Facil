@@ -48,6 +48,21 @@ export default function TenantDashboard() {
     const t = JSON.parse(session);
     setTenant(t);
     fetchData(t);
+
+    const channel = supabase
+      .channel('payments_changes_tenant')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `tenant_id=eq.${t.id}` },
+        () => {
+          fetchData(t);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [navigate]);
 
   const fetchData = async (t: any = tenant) => {

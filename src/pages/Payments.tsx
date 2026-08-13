@@ -44,6 +44,22 @@ export default function Payments() {
   useEffect(() => {
     if (!user) return;
     fetchData();
+
+    // Listen to changes in payments table to provide real-time status updates (Webhook)
+    const channel = supabase
+      .channel('payments_changes_owner')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `owner_id=eq.${user.uid}` },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchData = async () => {
@@ -296,28 +312,22 @@ export default function Payments() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-900 dark:text-white">R$ {p.amount.toLocaleString()}</p>
+                        <p className="font-bold text-slate-900 dark:text-white">R$ {Number(p.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.status === 'paid' ? 'bg-secondary/10 text-secondary' :
-                          p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
+                          p.status === 'processing' ? 'bg-blue-500/10 text-blue-500' :
+                            p.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'
                           }`}>
-                          {p.status === 'paid' ? 'Pago' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
+                          {p.status === 'paid' ? 'Pago' : p.status === 'processing' ? 'Processando' : p.status === 'pending' ? 'Pendente' : 'Atrasado'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          {p.status !== 'paid' && (
-                            <button
-                              onClick={() => handleMarkAsPaid(p.id)}
-                              className="p-2 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition-all"
-                              title="Marcar como pago"
-                            >
-                              <CheckCircle2 size={18} />
-                            </button>
-                          )}
 
-                          {p.status !== 'paid' && (
+                          {/* Botão Marcar como pago ocultado para evitar duplicação em favor do Webhook do Gateway */}
+
+                          {p.status !== 'paid' && p.status !== 'processing' && (
                             <button
                               onClick={() => setSelectedBillingAction({ payment: p, tenant, property })}
                               className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all flex items-center justify-center"
@@ -341,13 +351,20 @@ export default function Payments() {
                             {activeDropdown === p.id && (
                               <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[50]">
                                 <div className="p-2">
-                                  <button
-                                    onClick={() => handleDeletePayment(p.id)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all group"
-                                  >
-                                    <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
-                                    <span>Excluir</span>
-                                  </button>
+                                  {p.status !== 'paid' && p.status !== 'processing' && (
+                                    <button
+                                      onClick={() => handleDeletePayment(p.id)}
+                                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all group"
+                                    >
+                                      <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
+                                      <span>Excluir</span>
+                                    </button>
+                                  )}
+                                  {(p.status === 'paid' || p.status === 'processing') && (
+                                    <div className="px-4 py-3 text-xs text-slate-400 text-center">
+                                      Sem ações (Gerenciado pelo Gateway)
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -359,7 +376,7 @@ export default function Payments() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-slate-500">Nenhum pagamento encontrado.</td>
+                  <td colSpan={5} className="px-6 py-20 text-center text-slate-500">Nenhuma cobrança encontrada com o filtro atual.</td>
                 </tr>
               )}
             </tbody>

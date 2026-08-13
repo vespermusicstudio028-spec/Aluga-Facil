@@ -60,10 +60,22 @@ export default function Login() {
   useEffect(() => {
     const isDemo = searchParams.get('demo') === 'true';
     if (isDemo) {
-      setValue('email', 'demo@alugafacil.com');
-      setValue('password', 'demo123');
+      // Auto-login para demonstração
+      setIsLoading(true);
+      setError('');
+      signIn('demo@alugafacil.com', 'demo1234')
+        .then(() => {
+          navigate('/dashboard', { replace: true });
+        })
+        .catch((err: any) => {
+          // Se conta demo não existir ou senha errada, apenas preenche o campo
+          setValue('email', 'demo@alugafacil.com');
+          setValue('password', 'demo1234');
+          setError('Conta de demonstração indisponível. Crie uma conta grátis para continuar.');
+          setIsLoading(false);
+        });
     }
-  }, [searchParams, setValue]);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {

@@ -197,7 +197,7 @@ export interface Contract {
   updatedAt?: string;
 }
 
-export type PaymentStatus = 'paid' | 'pending' | 'late' | 'cancelled' | 'refunded';
+export type PaymentStatus = 'paid' | 'pending' | 'processing' | 'late' | 'cancelled' | 'refunded' | 'failed';
 
 export interface Payment {
   id: string;
